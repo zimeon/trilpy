@@ -9,6 +9,8 @@ class Store(object):
 
     def add(self, name, resource):
         """Add resource with name."""
+        if (name in self.deleted):
+            self.deleted.discard(name)
         self.resources[name] = resource
 
     def delete(self, name):

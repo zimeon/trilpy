@@ -6,6 +6,7 @@ import logging
 import os.path
 import tornado.ioloop
 import tornado.web
+from trilpy.ldpnr import LDPNR
 
 class HTTPError(tornado.web.HTTPError):
 
@@ -30,8 +31,14 @@ class LDPHandler(tornado.web.RequestHandler):
                 raise HTTPError(410)
             logging.debug("Not found")
             raise HTTPError(404)
+        resource = self.store.resources[path]
+        if (isinstance(resource, LDPNR)):
+            content = resource.content
+        else:
+            self.write("LDPC")
+        self.set_header("Content-Length", len(content))
         if (not is_head):
-            self.write("CONTENT HERE")
+            self.write(content)
 
     def post(self):
         """HTTP POST."""
@@ -47,11 +54,17 @@ class LDPHandler(tornado.web.RequestHandler):
         """HTTP PUT."""
         if (not self.support_put):
             raise HTTPError(405)
-        if (self.request_content_type() in 
-            ['text/turtle', 'application/ld+json']):
+        path = self.request.path
+        logging.debug("PUT %s" % (path))
+        if (path in self.store.resources):
+            self.store.delete(path)
+        content_type = self.request_content_type()
+        if (content_type in ['text/turtle', 'application/ld+json']):
             self.confirm("Create LDPRS")
         else:
-            self.confirm("Create LDPNS")
+            self.store.add(path, LDPNR(content=self.request.body,
+                                       content_type=content_type))
+            self.confirm("Created LDPNR")
 
     def delete(self):
         """HTTP DELETE.
