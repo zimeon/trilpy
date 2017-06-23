@@ -34,8 +34,13 @@ class LDPHandler(tornado.web.RequestHandler):
             self.write("CONTENT HERE")
 
     def post(self):
+        """HTTP POST."""
         path = self.request.path        
         self.set_header("Content-Type", "text/plain")
+        if (path not in self.store.resources):
+            if (path in self.store.deleted):
+                raise HTTPError(410)
+            raise HTTPError(404)
         self.write("You wrote " + self.get_body_argument("message"))
 
     def put(self):
