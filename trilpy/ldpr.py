@@ -9,4 +9,4 @@ class LDPR(object):
     def __init__(self):
         """Initialize LDPR."""
         self.admin = None
-        self.data = None
+        self.content = None

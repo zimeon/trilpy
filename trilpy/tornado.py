@@ -47,8 +47,11 @@ class LDPHandler(tornado.web.RequestHandler):
         """HTTP PUT."""
         if (not self.support_put):
             raise HTTPError(405)
-        self.set_header("Content-Type", "text/plain")
-        self.write("You wrote " + self.get_body_argument("message"))
+        if (self.request_content_type() in 
+            ['text/turtle', 'application/ld+json']):
+            self.confirm("Create LDPRS")
+        else:
+            self.confirm("Create LDPNS")
 
     def delete(self):
         """HTTP DELETE.
@@ -64,6 +67,18 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(404)
         self.store.delete(path)
         self.confirm("Deleted")
+
+    def request_content_type(self):
+        """Return the request content type.
+
+        400 if there are multiple headers specified.
+        """
+        cts = self.request.headers.get_list('content-type')
+        if (len(cts) > 1):
+            raise HTTPError(400, "Multiple Content-Type headers")
+        elif (len(cts) == 0):
+            raise HTTPError(400, "No Content-Type header")
+        return(cts[0])
 
     def write_error(self, status_code, **kwargs):
         """Plain text error message (nice with curl)."""
