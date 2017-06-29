@@ -1,8 +1,9 @@
-"""An LDPNR - Non-RDF Source."""
+"""An LDPNR - LDP Non-RDF Source."""
 from trilpy.ldpr import LDPR
 
+
 class LDPNR(LDPR):
-    """LDPNR - 
+    """LDPNR - A binary object.
 
     An LDPR whose state is not represented in RDF. For example,
     these can be binary or text documents that do not have useful
@@ -13,6 +14,6 @@ class LDPNR(LDPR):
 
     def __init__(self, content=None, content_type=None):
         """Initialize LDPNR."""
+        super(LDPNR, self).__init__()
         self.content = content
         self.content_type = content_type
-        

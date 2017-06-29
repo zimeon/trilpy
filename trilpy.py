@@ -7,6 +7,7 @@ from trilpy.store import Store
 from trilpy.ldpc import LDPC
 from trilpy.tornado import run
 
+
 def main():
     """Command line handler."""
     parser = optparse.OptionParser()
@@ -23,10 +24,10 @@ def main():
     (opts, args) = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if opts.verbose else logging.INFO)
     store = Store()
-    store.add(opts.root_container, LDPC())
+    store.add(LDPC(), opts.root_container)
     run(opts.port, store,
-        support_put = (not opts.no_put),
-        support_delete = (not opts.no_delete))
+        support_put=(not opts.no_put),
+        support_delete=(not opts.no_delete))
 
 if __name__ == "__main__":
     main()
