@@ -59,11 +59,11 @@ class TestAll(unittest.TestCase):
         self.assertEqual(ptype, None)
         # Error
         self.assertRaises(Exception, find_return_representation,
-            ['return=representation; omit="a"; include="b"'])
+                          ['return=representation; omit="a"; include="b"'])
         self.assertRaises(Exception, find_return_representation,
-            ['return=representation; foo'])
+                          ['return=representation; foo'])
         self.assertRaises(Exception, find_return_representation,
-            ['return=representation;foo = bar'])
+                          ['return=representation;foo = bar'])
 
     def test05_ldp_return_representation_omits(self):
         """Get set of omits."""
