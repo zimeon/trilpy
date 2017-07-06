@@ -1,2 +1,5 @@
 *.pyc
 .cache
+report/
+test-output/
+vendor/
