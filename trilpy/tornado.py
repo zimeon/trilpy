@@ -11,7 +11,7 @@ from urllib.parse import urljoin, urlsplit
 from .ldpnr import LDPNR
 from .ldprs import LDPRS
 from .ldpc import LDPC
-
+from .prefer_header import ldp_return_representation_omits
 
 class HTTPError(tornado.web.HTTPError):
     """HTTP Error class for non-2xx responses."""
@@ -51,7 +51,12 @@ class LDPHandler(tornado.web.RequestHandler):
             content = resource.content
         else:
             content_type = self.conneg(self.rdf_types)
-            content = resource.serialize(content_type)
+            # Is there a Prefer return=representation header?
+            omits = ldp_return_representation_omits(
+                self.request.headers.get_list('Prefer'))
+            content = resource.serialize(content_type, omits)
+            if (len(omits) > 0):
+                self.set_header("Prefernce-Applied", "return=representation")
         self.set_links('type', resource.rdf_types)
         self.set_header("Content-Type", content_type)
         self.set_header("Content-Length", len(content))
@@ -80,7 +85,7 @@ class LDPHandler(tornado.web.RequestHandler):
         new_resource = self.put_post_resource(uri)
         slug = self.request.headers.get('Slug')
         new_uri = self.store.add(new_resource, context=uri, slug=slug)
-        resource.add_member(new_uri)
+        resource.add_contained(new_uri)
         new_path = self.uri_to_path(new_uri)
         self.set_header("Content-Type", "text/plain")
         self.set_header("Location", new_uri)
@@ -127,6 +132,16 @@ class LDPHandler(tornado.web.RequestHandler):
 
         Will return if OK, raise HTTPError otherwise.
         """
+        # Check ETags
+        im = self.request.headers.get('If-Match')
+        if (self.require_if_match_etag and im is None):
+            logging.debug("Missing If-Match header")
+            raise HTTPError(428)
+        elif (im is not None and im != old_resource.etag):
+            logging.debug("ETag mismatch: %s vs %s" %
+                          (im, old_resource.etag))
+            raise HTTPError(412)
+        # Check replacement details
         if (isinstance(old_resource, LDPNR) and
                 isinstance(new_resource, LDPNR)):
             # OK to replace any binary with another
@@ -151,15 +166,6 @@ class LDPHandler(tornado.web.RequestHandler):
             logging.debug("Rejecting incompatible replace of %s with %s" %
                           (str(old_resource), str(new_resource)))
             raise HTTPError(409)
-        # Check ETags
-        im = self.request.headers.get('If-Match')
-        if (self.require_if_match_etag and im is None):
-            logging.debug("Missing If-Match header")
-            raise HTTPError(412)
-        elif (im is not None and im != old_resource.etag):
-            logging.debug("ETag mismatch: %s vs %s" %
-                          (im, old_resource.etag))
-            raise HTTPError(412)
 
     def patch(self):
         """HTTP PATCH."""

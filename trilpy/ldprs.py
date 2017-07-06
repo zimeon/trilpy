@@ -83,22 +83,31 @@ class LDPRS(LDPR):
                 ctriples.add((s, p, o))
         return(ctriples)
 
-    def serialize(self, content_type='text/turtle'):
+    def serialize(self, content_type='text/turtle', omits=None):
         """Serialize this resource in given format.
 
         We also add in certain server managed triples required
         by LDP and/or Fedora.
+
+        If ptype is not None then apply the Prefer return=representation
+        preference to select only a subset of triples.
         """
-        graph = Graph() + self.content
+        graph = Graph()
         self.content.bind('ldp', LDP)
-        self.add_server_managed_triples(graph)
+        if (omits is None or 'content' not in omits):
+            graph += self.content
+        self.add_server_managed_triples(graph, omits)
         return(graph.serialize(
             format=self._mime_to_rdflib_type(content_type),
             context="",
             indent=2).decode('utf-8'))
 
-    def add_server_managed_triples(self, graph):
-        """Add RDF triples from the server."""
+    def add_server_managed_triples(self, graph, omits=None):
+        """Add server managed RDF triples to graph."""
+        self.add_type_triples(graph)
+
+    def add_type_triples(self, graph):
+        """Add rdf:type triples to graph."""
         for rdf_type in self.rdf_types:
             graph.add((URIRef(self.uri), RDF.type, URIRef(rdf_type)))
 

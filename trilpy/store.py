@@ -41,9 +41,9 @@ class Store(object):
             resource = self.resources[uri]
             if (resource.contained_in is not None):
                 try:
-                    self.resources[resource.contained_in].members.remove(uri)
+                    self.resources[resource.contained_in].contained.remove(uri)
                 except:
-                    logging.warn("OOPS - failed to remove membership triple of %s from %s" %
+                    logging.warn("OOPS - failed to remove containment triple of %s from %s" %
                                  (uri, resource.contained_in))
             del self.resources[uri]
             self.deleted.add(uri)
