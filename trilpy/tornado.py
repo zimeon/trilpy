@@ -24,7 +24,9 @@ class LDPHandler(tornado.web.RequestHandler):
 
     store = None
     support_put = True
+    support_patch = True
     support_delete = True
+    require_if_match_etag = True
     base_uri = 'BASE'
     rdf_types = ['text/turtle', 'application/ld+json']
     constraints_path = '/constraints.txt'
@@ -54,7 +56,7 @@ class LDPHandler(tornado.web.RequestHandler):
         self.set_header("Content-Type", content_type)
         self.set_header("Content-Length", len(content))
         self.set_header("Etag", resource.etag)
-        self.set_allow(uri)
+        self.set_allow(resource)
         if (not is_head):
             self.write(content)
 
@@ -76,7 +78,8 @@ class LDPHandler(tornado.web.RequestHandler):
                           (str(resource)))
             raise HTTPError(405)
         new_resource = self.put_post_resource(uri)
-        new_uri = self.store.add(new_resource)
+        slug = self.request.headers.get('Slug')
+        new_uri = self.store.add(new_resource, context=uri, slug=slug)
         resource.add_member(new_uri)
         new_path = self.uri_to_path(new_uri)
         self.set_header("Content-Type", "text/plain")
@@ -144,10 +147,32 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(409)
         # Check ETags
         im = self.request.headers.get('If-Match')
-        if (im is not None and im != old_resource.etag):
+        if (self.require_if_match_etag and im is None):
+            logging.debug("Missing If-Match header")
+            raise HTTPError(412)
+        elif (im is not None and im != old_resource.etag):
             logging.debug("ETag mismatch: %s vs %s" %
                           (im, old_resource.etag))
             raise HTTPError(412)
+
+    def patch(self):
+        """HTTP PATCH."""
+        if (not self.support_patch):
+            raise HTTPError(405)
+        path = self.request.path
+        uri = self.path_to_uri(path)
+        logging.debug("PATCH %s" % (path))
+        if (uri not in self.store.resources):
+            if (uri in self.store.deleted):
+                raise HTTPError(410)
+            raise HTTPError(404)
+        resource = self.store.resources[uri]
+        if (not isinstance(resource, LDPRS)):
+            logging.debug("Rejecting PATCH to non-LDPRS (%s)" %
+                          (str(resource)))
+            raise HTTPError(405)
+        # ... FIXME - NEED GUTS
+        raise HTTPError(499)
 
     def put_post_resource(self, uri=None):
         """Parse request data for PUT or POST.
@@ -208,7 +233,7 @@ class LDPHandler(tornado.web.RequestHandler):
             # Specific resource
             resource = self.store.resources[uri]
             self.set_links('type', resource.rdf_type_uris)
-            self.set_allow(uri)
+            self.set_allow(resource)
         self.confirm("Options returned")
 
     def request_content_type(self):
@@ -264,19 +289,25 @@ class LDPHandler(tornado.web.RequestHandler):
         path = urlsplit(uri)[2]
         return(path if path != '' else '/')
 
-    def set_allow(self, uri=None):
+    def set_allow(self, resource=None):
         """Add Allow header to current response."""
         methods = ['GET', 'HEAD', 'OPTIONS', 'PUT']
         if (self.support_delete):
             methods.append('DELETE')
-        if (uri in self.store.resources and
-                isinstance(self.store.resources[uri], LDPC)):
-            methods.append('POST')
-            # 5.2.3.13 LDP servers that support POST must include an
-            # Accept-Post response header on HTTP OPTIONS responses,
-            # listing POST request media type(s) supported by the
-            # server.
-            self.set_header('Accept-Post', ', '.join(self.rdf_types))
+        if (resource is not None):
+            if  (isinstance(resource, LDPC)):
+                # 4.2.7.1 LDP servers that support PATCH must include an
+                # Accept-Patch HTTP response header [RFC5789] on HTTP
+                # OPTIONS requests, listing patch document media type(s)
+                # supported by the server.
+                methods.append('PATCH')
+                self.set_header('Accept-Patch', ', '.join(self.rdf_types))
+                # 5.2.3.13 LDP servers that support POST must include an
+                # Accept-Post response header on HTTP OPTIONS responses,
+                # listing POST request media type(s) supported by the
+                # server.
+                methods.append('POST')
+                self.set_header('Accept-Post', ', '.join(self.rdf_types))
         self.set_header('Allow', ', '.join(methods))
 
     def set_links(self, rel, uris):

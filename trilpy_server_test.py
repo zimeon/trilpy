@@ -51,7 +51,7 @@ class TestAll(unittest.TestCase):
         r = requests.get(url)
         self.assertEqual(r.status_code, 410)
 
-    def test_4_2_4_5(self):
+    def test_ldp_4_2_4_5(self):
         """If-Match on ETag for PUT to replace."""
         url = urljoin(baseurl, '/test1')
         # PUT object

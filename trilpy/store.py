@@ -37,8 +37,15 @@ class Store(object):
     def _get_uri(self, context=None, slug=None):
         """Get URI for a new resource.
 
-        FIXME - ignores context and slug.
+        Will first try to honor the slug but creating a new URI
+        with slug as the final path element.
         """
+        if (context is not None and slug is not None):
+            uri = urljoin(context, slug)
+            if (uri not in self.resources and
+                    uri not in self.deleted):
+                return(uri)
+        # Otherwise consruct URI
         n = 1
         while (True):
             uri = urljoin(self.base_uri, '/' + str(n))
