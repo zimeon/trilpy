@@ -12,8 +12,8 @@ class LDPNR(LDPR):
     See <https://www.w3.org/TR/ldp/#ldpnr>.
     """
 
-    def __init__(self, content=None, content_type=None):
+    def __init__(self, uri=None, content=None, content_type=None):
         """Initialize LDPNR."""
-        super(LDPNR, self).__init__()
+        super(LDPNR, self).__init__(uri)
         self.content = content
         self.content_type = content_type

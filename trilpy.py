@@ -23,8 +23,11 @@ def main():
                       help="be verbose.")
     (opts, args) = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if opts.verbose else logging.INFO)
-    store = Store()
-    store.add(LDPC(), opts.root_container)
+    base_uri = 'http://localhost:%d' % (opts.port)  # FIXME
+    store = Store(base_uri)
+    container = LDPC()
+    uri = store.add(container, opts.root_container)
+    container.uri = uri
     run(opts.port, store,
         support_put=(not opts.no_put),
         support_delete=(not opts.no_delete))

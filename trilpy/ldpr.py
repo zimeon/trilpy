@@ -7,7 +7,13 @@ class LDPR(object):
     See <https://www.w3.org/TR/ldp/#ldpr>.
     """
 
-    def __init__(self):
+    def __init__(self, uri=None):
         """Initialize LDPR."""
+        self.uri = uri
         self.admin = None
         self.content = None
+
+    @property
+    def rdf_types(self):
+        """List of RDF types for this LDP Resource."""
+        return(['http://www.w3.org/ns/ldp#Resource'])

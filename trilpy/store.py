@@ -1,35 +1,45 @@
 """Trilpy store for resources."""
 
+from urllib.parse import urljoin
+
 
 class Store(object):
     """Resource store."""
 
-    def __init__(self):
-        """Initialize empty store."""
+    def __init__(self, base_uri):
+        """Initialize empty store with a base_uri."""
+        self.base_uri = base_uri
         self.resources = {}
         self.deleted = set()
 
-    def add(self, resource, name=None, context=None, slug=None):
-        """Add resource, optionally with name."""
-        if (name is None):
-            name = self._get_name(context, slug)
-        elif (name in self.deleted):
-            self.deleted.discard(name)
-        self.resources[name] = resource
-        return(name)
+    def add(self, resource, uri=None, context=None, slug=None):
+        """Add resource, optionally with uri."""
+        if (uri is None):
+            uri = self._get_uri(context, slug)
+        else:
+            # Handle possible relative URI
+            uri = urljoin(self.base_uri, uri)
+        if (uri in self.deleted):
+            self.deleted.discard(uri)
+        self.resources[uri] = resource
+        resource.uri = uri
+        return(uri)
 
-    def delete(self, name):
+    def delete(self, uri):
         """Delete resource and record deletion."""
-        if (name in self.resources):
-            del self.resources[name]
-            self.deleted.add(name)
+        if (uri in self.resources):
+            del self.resources[uri]
+            self.deleted.add(uri)
 
-    def _get_name(self, context=None, slug=None):
-        """Create a new resource name.
+    def _get_uri(self, context=None, slug=None):
+        """Get URI for a new resource.
 
         FIXME - ignores context and slug.
         """
         n = 1
-        while (('/' + str(n)) in self.resources):
+        while (True):
+            uri = urljoin(self.base_uri, '/' + str(n))
+            if (uri not in self.resources and
+                    uri not in self.deleted):
+                return(uri)
             n += 1
-        return('/' + str(n))
