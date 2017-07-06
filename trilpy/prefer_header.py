@@ -41,13 +41,13 @@ def find_return_representation(prefer_headers):
     """Look for return=representation preference as used in LDP.
 
     Returns type ('omit' or 'include') and list of URIs, else
-    None.
+    (None, []).
     """
     params = find_preference(prefer_headers, 'return=representation')
     if (len(params) > 1):
         raise Exception("Bad paramaters for return=representation preference")
     elif (len(params) == 0):
-        return(None)
+        return(None, [])
     (ptype, quoted_uris) = params[0].split('=')
     if (ptype not in ['omit', 'include']):
         raise Exception("Bad type for return=representation preference")
@@ -69,12 +69,11 @@ def ldp_return_representation_omits(prefer_headers):
     Three possible sections: 'content', 'membership', 'containment'
     where we three the include and omit as opposites with these
     three portions completing the response. Note that LDP explicitly
-    says that servers may not implement it this way.
+    says that servers may choose not to implement it this way.
     """
     omits = set()
     try:
         (ptype, uris) = find_return_representation(prefer_headers)
-        uris = set(uris)
         for uri in uris:
             if (uri in _uri_to_name_map):
                 omits.add(_uri_to_name_map[uri])
@@ -84,6 +83,6 @@ def ldp_return_representation_omits(prefer_headers):
             omits = set(_uri_to_name_map.values())
             for section in includes:
                 omits.remove(section)
-    except Exception as e:
+    except StopIteration as e:
         logging.info("Ignored: " + str(e))
     return(omits)

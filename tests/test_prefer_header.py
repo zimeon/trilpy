@@ -1,6 +1,6 @@
 """prefer_header tests."""
 import unittest
-from trilpy.prefer_header import parse_prefer_header, find_return_representation, ldp_return_representation_omits
+from trilpy.prefer_header import parse_prefer_header, find_preference, find_return_representation, ldp_return_representation_omits
 
 
 class TestAll(unittest.TestCase):
@@ -29,6 +29,15 @@ class TestAll(unittest.TestCase):
         self.assertEqual(pref, 'return=representation')
         self.assertEqual(params, ['omit="http://www.w3.org/ns/ldp#PreferMembership http://www.w3.org/ns/ldp#PreferContainment"'])
 
+    def test03_find_preference(self):
+        """Extract particular preference."""
+        params = find_preference(['foo; bar'], 'foo')
+        self.assertEqual(params, ['bar'])
+        params = find_preference(['foo; bar; baz'], 'foo')
+        self.assertEqual(params, ['bar', 'baz'])
+        params = find_preference(['foo; bar; baz'], 'bar')
+        self.assertEqual(params, ())
+
     def test04_find_return_representation(self):
         """Get return=representation prefernce."""
         (ptype, uris) = find_return_representation([
@@ -43,6 +52,18 @@ class TestAll(unittest.TestCase):
         self.assertEqual(ptype, 'omit')
         self.assertEqual(uris, ['http://www.w3.org/ns/ldp#PreferMembership',
                                 'http://www.w3.org/ns/ldp#PreferContainment'])
+        # Empty
+        (ptype, uris) = find_return_representation([])
+        self.assertEqual(ptype, None)
+        (ptype, uris) = find_return_representation(['a; b="c"'])
+        self.assertEqual(ptype, None)
+        # Error
+        self.assertRaises(Exception, find_return_representation,
+            ['return=representation; omit="a"; include="b"'])
+        self.assertRaises(Exception, find_return_representation,
+            ['return=representation; foo'])
+        self.assertRaises(Exception, find_return_representation,
+            ['return=representation;foo = bar'])
 
     def test05_ldp_return_representation_omits(self):
         """Get set of omits."""
