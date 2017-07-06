@@ -19,6 +19,9 @@ class Store(object):
         else:
             # Handle possible relative URI
             uri = urljoin(self.base_uri, uri)
+            # Normalize base_uri/ to base_uri
+            if (uri == (self.base_uri + '/')):
+                uri = self.base_uri
         if (uri in self.deleted):
             self.deleted.discard(uri)
         self.resources[uri] = resource

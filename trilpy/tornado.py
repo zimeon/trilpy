@@ -26,6 +26,8 @@ class LDPHandler(tornado.web.RequestHandler):
     support_put = True
     support_delete = True
     base_uri = 'BASE'
+    rdf_types = ['text/turtle', 'application/ld+json']
+    constraints_path = '/constraints.txt'
 
     def head(self):
         """HEAD - GET with no body."""
@@ -43,13 +45,16 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(404)
         resource = self.store.resources[uri]
         if (isinstance(resource, LDPNR)):
+            content_type = resource.content_type
             content = resource.content
         else:
-            content_type = self.conneg(['text/turtle', 'application/ld+json'])
+            content_type = self.conneg(self.rdf_types)
             content = resource.serialize(content_type)
         self.set_links('type', resource.rdf_types)
+        self.set_header("Content-Type", content_type)
         self.set_header("Content-Length", len(content))
-        self.set_options()
+        self.set_header("Etag", resource.etag)
+        self.set_allow(uri)
         if (not is_head):
             self.write(content)
 
@@ -60,19 +65,25 @@ class LDPHandler(tornado.web.RequestHandler):
         """
         path = self.request.path
         uri = self.path_to_uri(path)
-        self.set_header("Content-Type", "text/plain")
+        logging.debug("POST %s" % (path))
         if (uri not in self.store.resources):
             if (uri in self.store.deleted):
                 raise HTTPError(410)
             raise HTTPError(404)
         resource = self.store.resources[uri]
         if (not isinstance(resource, LDPC)):
-            raise HTTPError()
-        resource = self.put_post_resource(uri)
-        new_uri = self.store.add(resource)
+            logging.debug("Rejecting POST to non-LDPC (%s)" %
+                          (str(resource)))
+            raise HTTPError(405)
+        new_resource = self.put_post_resource(uri)
+        new_uri = self.store.add(new_resource)
+        resource.add_member(new_uri)
         new_path = self.uri_to_path(new_uri)
-        self.set_header("Location", new_path)
+        self.set_header("Content-Type", "text/plain")
+        self.set_header("Location", new_uri)
         self.set_status(201)
+        logging.debug("POST %s as %s in %s OK" %
+                      (str(new_resource), new_uri, uri))
 
     def put(self):
         """HTTP PUT.
@@ -86,13 +97,57 @@ class LDPHandler(tornado.web.RequestHandler):
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("PUT %s" % (path))
+        # 5.2.4.2 LDP servers that allow LDPR creation via
+        # PUT should not re-use URIs. => 409 if deleted
+        if (uri in self.store.deleted):
+            logging.debug("Rejecting PUT to deleted URI")
+            raise HTTPError(409)
         replace = False
+        resource = self.put_post_resource(uri)
         if (uri in self.store.resources):
+            # 5.2.4.1 LDP servers SHOULD NOT allow HTTP PUT to
+            # update an LDPC's containment triples; if the
+            # server receives such a request, it SHOULD respond
+            # with a 409 (Conflict) status code.
+            logging.warn("PUT REPLACE: %s" % (str(resource)))
+            self.check_replace_via_put(self.store.resources[uri],
+                                       resource)
+            # OK, do replace
             self.store.delete(uri)
             replace = True
-        resource = self.put_post_resource(uri)
         self.store.add(resource, uri)
         self.set_status(204 if replace else 201)
+        logging.debug("PUT %s to %s OK" % (str(resource), uri))
+
+    def check_replace_via_put(self, old_resource, new_resource):
+        """Determine whether it is OK to repace with PUT.
+
+        Will return if OK, raise HTTPError otherwise.
+        """
+        if (isinstance(old_resource, LDPNR) and
+                isinstance(new_resource, LDPNR)):
+            # OK to replace any binary with another
+            content = resource.content
+        elif (isinstance(old_resource, LDPC) and
+              isinstance(new_resource, LDPC)):
+            # Container checks
+            content = resource.serialize(content_type)
+        elif (isinstance(old_resource, LDPRS) and
+              not isinstance(old_resource, LDPC) and
+              isinstance(new_resource, LDPRS) and
+              not isinstance(new_resource, LDPC)):
+            # RDF Source checks
+            pass
+        else:
+            logging.debug("Rejecting incompatible replace of %s with %s" %
+                          (str(old_resource), str(new_resource)))
+            raise HTTPError(409)
+        # Check ETags
+        im = self.request.headers.get('If-Match')
+        if (im is not None and im != old_resource.etag):
+            logging.debug("ETag mismatch: %s vs %s" %
+                          (im, old_resource.etag))
+            raise HTTPError(412)
 
     def put_post_resource(self, uri=None):
         """Parse request data for PUT or POST.
@@ -100,7 +155,7 @@ class LDPHandler(tornado.web.RequestHandler):
         Handles both RDF and Non-RDF sources.
         """
         content_type = self.request_content_type()
-        if (content_type in ['text/turtle', 'application/ld+json']):
+        if (content_type in self.rdf_types):
             try:
                 rs = LDPRS(uri)
                 rs.parse(content=self.request.body,
@@ -131,18 +186,46 @@ class LDPHandler(tornado.web.RequestHandler):
         self.store.delete(uri)
         self.confirm("Deleted")
 
+    def options(self):
+        """HTTP OPTIONS.
+
+        Required in LDP
+        <https://www.w3.org/TR/ldp/#ldpr-HTTP_OPTIONS>
+        with extensions beyond
+        <https://tools.ietf.org/html/rfc7231#section-4.3.7>
+        """
+        path = self.request.path
+        uri = self.path_to_uri(path)
+        logging.debug("OPTIONS %s" % (path))
+        if (path == '*'):
+            # Server-wide options per RFC7231
+            pass
+        elif (uri not in self.store.resources):
+            if (uri in self.store.deleted):
+                raise HTTPError(410)
+            raise HTTPError(404)
+        else:
+            # Specific resource
+            resource = self.store.resources[uri]
+            self.set_links('type', resource.rdf_type_uris)
+            self.set_allow(uri)
+        self.confirm("Options returned")
+
     def request_content_type(self):
         """Return the request content type.
 
         400 if there are multiple headers specified.
+
+        FIXME - Simply strips any charset information.
         """
         cts = self.request.headers.get_list('content-type')
         if (len(cts) > 1):
             raise HTTPError(400, "Multiple Content-Type headers")
         elif (len(cts) == 0):
             raise HTTPError(400, "No Content-Type header")
-        logging.debug("Request content-type %s" % (cts[0]))
-        return(cts[0])
+        content_type = cts[0].split(';')[0]
+        logging.debug("Request content-type %s" % (content_type))
+        return(content_type)
 
     def conneg(self, supported_types):
         """Return content_type for response by conneg.
@@ -169,19 +252,32 @@ class LDPHandler(tornado.web.RequestHandler):
     def path_to_uri(self, path):
         """Resource URI from server path."""
         uri = urljoin(self.base_uri, path)
-        logging.warn("Baseurl to path: %s -> %s" % (self.base_uri, uri))
+        # Normalize base_uri/ to base_uri
+        if (uri == (self.base_uri + '/')):
+            uri = self.base_uri
+        logging.debug("uri: %s %s -> %s" %
+                      (self.base_uri, path, uri))
         return(uri)
 
     def uri_to_path(self, uri):
         """Resource local path (with /) from URI."""
-        return(urlsplit(uri)[2])
+        path = urlsplit(uri)[2]
+        return(path if path != '' else '/')
 
-    def set_options(self):
-        """Add options header to current response."""
-        opts = ['GET', 'HEAD', 'OPTIONS']
+    def set_allow(self, uri=None):
+        """Add Allow header to current response."""
+        methods = ['GET', 'HEAD', 'OPTIONS', 'PUT']
         if (self.support_delete):
-            opts.append('DELETE')
-        self.set_header('Options', ', '.join(opts))
+            methods.append('DELETE')
+        if (uri in self.store.resources and
+                isinstance(self.store.resources[uri], LDPC)):
+            methods.append('POST')
+            # 5.2.3.13 LDP servers that support POST must include an
+            # Accept-Post response header on HTTP OPTIONS responses,
+            # listing POST request media type(s) supported by the
+            # server.
+            self.set_header('Accept-Post', ', '.join(self.rdf_types))
+        self.set_header('Allow', ', '.join(methods))
 
     def set_links(self, rel, uris):
         """Add Link headers with set of rel uris."""
@@ -191,7 +287,15 @@ class LDPHandler(tornado.web.RequestHandler):
         self.set_header('Link', ', '.join(links))
 
     def write_error(self, status_code, **kwargs):
-        """Plain text error message (nice with curl)."""
+        """Plain text error message (nice with curl).
+
+        Also adds a Link header for constraints that (might have)
+        caused an error. Use defined in
+        <https://www.w3.org/TR/ldp/#ldpr-gen-pubclireqs>
+        and servers MAY add this header indescriminately.
+        """
+        self.set_links('http://www.w3.org/ns/ldp#constrainedBy',
+                       [self.path_to_uri(self.constraints_path)])
         self.set_header('Content-Type', 'text/plain')
         self.finish(str(status_code) + ' - ' + self._reason + "\n")
 
@@ -222,7 +326,8 @@ def make_app():
     """Create Trilpy Tornado application."""
     static_path = os.path.join(os.path.dirname(__file__), 'static')
     return tornado.web.Application([
-        (r"/(favicon\.ico)", tornado.web.StaticFileHandler,
+        (r"/(favicon\.ico|constraints.txt)",
+            tornado.web.StaticFileHandler,
             {'path': static_path}),
         (r"/status", StatusHandler),
         (r".*", LDPHandler),

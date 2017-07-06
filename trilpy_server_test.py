@@ -15,7 +15,8 @@ class TestAll(unittest.TestCase):
 
     def setUp(self):
         """Start trilpy."""
-        self.proc = Popen(['/usr/bin/env', 'python', './trilpy.py', '-p', str(port)])
+        self.proc = Popen(['/usr/bin/env', 'python', './trilpy.py',
+                           '-v', '-p', str(port)])
         print("Started trilpy (pid=%d)" % (self.proc.pid))
         time.sleep(1)
 
@@ -50,6 +51,34 @@ class TestAll(unittest.TestCase):
         r = requests.get(url)
         self.assertEqual(r.status_code, 410)
 
+    def test_4_2_4_5(self):
+        """If-Match on ETag for PUT to replace."""
+        url = urljoin(baseurl, '/test1')
+        # PUT object
+        r = requests.put(url,
+                         headers={'Content-Type': 'text/turtle'},
+                         data='<http://ex.org/a> <http://ex.org/b> "1".')
+        self.assertEqual(r.status_code, 201)
+        # Match
+        r = requests.get(url)
+        self.assertEqual(r.status_code, 200)
+        etag = r.headers.get('etag')
+        self.assertTrue(etag)
+        r = requests.put(url,
+                         headers={'If-Match': etag,
+                                  'Content-Type': 'text/turtle'},
+                         data='<http://ex.org/a> <http://ex.org/b> "2".')
+        self.assertEqual(r.status_code, 204)
+        # Now mismatch
+        r = requests.get(url)
+        self.assertEqual(r.status_code, 200)
+        etag = r.headers.get('etag')
+        self.assertTrue(etag)
+        r = requests.put(url,
+                         headers={'If-Match': etag + 'XXX',
+                                  'Content-Type': 'text/turtle'},
+                         data='<http://ex.org/a> <http://ex.org/b> "3".')
+        self.assertEqual(r.status_code, 412)
 
 # If run from command line, do tests
 if __name__ == '__main__':

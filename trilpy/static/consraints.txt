@@ -1,0 +1,5 @@
+# Constraints document
+
+This is whether we should put rules for constraints
+regarding resource creation and link to this 
+with 'http://www.w3.org/ns/ldp#constrainedBy'.
