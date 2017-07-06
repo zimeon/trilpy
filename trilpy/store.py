@@ -28,9 +28,13 @@ class Store(object):
         self.resources[uri] = resource
         resource.uri = uri
         if (context):
+            container = self.resources[context]
             # Add containment and contains relationships
             resource.contained_in = context
-            self.resources[context].add_contained(uri)
+            container.add_contained(uri)
+            #if (container.container_type == LDP.DirectContainer):
+            #    resource.member_of = context
+            #    container.add_member(uri)
         return(uri)
 
     def delete(self, uri):
@@ -46,7 +50,11 @@ class Store(object):
                     # Delete containment and contains relationships
                     context = resource.contained_in
                     resource.contained_in = None
-                    self.resources[context].del_contained(uri)
+                    container = self.resources[context]
+                    container.del_contained(uri)
+                    if (container.container_type == LDP.DirectContainer):
+                        resource.member_of = None
+                        container.del_member(uri)
                 except:
                     logging.warn("OOPS - failed to remove containment triple of %s from %s" %
                                  (uri, resource.contained_in))

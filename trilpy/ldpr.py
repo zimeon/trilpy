@@ -14,6 +14,7 @@ class LDPR(object):
         self.uri = uri
         self.content = None
         self.contained_in = None
+        self.member_of = None
         self._etag = None
 
     @property

@@ -57,7 +57,8 @@ class LDPHandler(tornado.web.RequestHandler):
                 self.request.headers.get_list('Prefer'))
             content = resource.serialize(content_type, omits)
             if (len(omits) > 0):
-                self.set_header("Prefernce-Applied", "return=representation")
+                self.set_header("Preference-Applied",
+                                "return=representation")
         self.set_links('type', resource.rdf_types)
         self.set_header("Content-Type", content_type)
         self.set_header("Content-Length", len(content))
@@ -365,11 +366,18 @@ class StatusHandler(tornado.web.RequestHandler):
         self.set_header("Content-Type", "text/plain")
         self.write("Store has\n")
         self.write("  * %d active resources\n" % (len(self.store.resources)))
-        for name in sorted(self.store.resources.keys()):
-            self.write("    * %s - %s\n" % (name, 'x'))
+        for (name, resource) in sorted(self.store.resources.items()):
+            t = str(type(resource))
+            if (isinstance(resource, LDPC)):
+                t = resource.container_type
+            elif (isinstance(resource, LDPRS)):
+                t = 'LDPRS'
+            elif (isinstance(resource, LDPNR)):
+                t = 'LDPNR'
+            self.write("    * %s - %s\n" % (name, t))
         self.write("  * %d deleted resources\n" % (len(self.store.deleted)))
         for name in sorted(self.store.deleted):
-            self.write("    * %s - %s\n" % (name, 'x'))
+            self.write("    * %s - %s\n" % (name, 'deleted'))
 
 
 def make_app():

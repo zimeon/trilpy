@@ -93,7 +93,7 @@ class LDPRS(LDPR):
         preference to select only a subset of triples.
         """
         graph = Graph()
-        self.content.bind('ldp', LDP)
+        graph.bind('ldp', LDP)
         if (omits is None or 'content' not in omits):
             graph += self.content
         self.add_server_managed_triples(graph, omits)

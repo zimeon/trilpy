@@ -30,6 +30,16 @@ class LDPC(LDPRS):
         and also containement triples.
         """
         self.add_type_triples(graph)
+        if (self.container_type == LDP.DirectContainer):
+            graph.add((URIRef(self.uri),
+                       LDP.membershipResource,
+                       URIRef(self.uri)))
+            graph.add((URIRef(self.uri),
+                       LDP.hasMemberRelation,
+                       self.membership_predicate))
+            graph.add((URIRef(self.uri),
+                      LDP.insertedContentRelation,
+                      LDP.MemberSubject))
         if (omits is None or 'membership' not in omits):
             self.add_member_triples(graph)
         if (omits is None or 'containment' not in omits):
@@ -52,7 +62,7 @@ class LDPC(LDPRS):
     @property
     def rdf_types(self):
         """List of RDF types for this container."""
-        return([LDP.BasicContainer, LDP.Resource])
+        return([self.container_type, LDP.Resource])
 
     def add_contained(self, uri):
         """Add uri as contained resource."""
