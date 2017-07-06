@@ -130,11 +130,17 @@ class LDPHandler(tornado.web.RequestHandler):
         if (isinstance(old_resource, LDPNR) and
                 isinstance(new_resource, LDPNR)):
             # OK to replace any binary with another
-            content = resource.content
+            content = old_resource.content
         elif (isinstance(old_resource, LDPC) and
               isinstance(new_resource, LDPC)):
-            # Container checks
-            content = resource.serialize(content_type)
+            # Container triple checks - it is OK to repeat (or not)
+            # any container triple present in the old resource, but
+            # changes are not allowed.
+            old_ctriples = old_resource.server_managed_triples()
+            new_ctriples = new_resource.get_containment_triples()
+            if (len(new_ctriples) > 0):
+                logging.debug("Rejecting attempt to change containment triples.")
+                raise HTTPError(409)
         elif (isinstance(old_resource, LDPRS) and
               not isinstance(old_resource, LDPC) and
               isinstance(new_resource, LDPRS) and
@@ -184,10 +190,19 @@ class LDPHandler(tornado.web.RequestHandler):
             try:
                 rs = LDPRS(uri)
                 rs.parse(content=self.request.body,
-                         content_type=content_type)
+                         content_type=content_type,
+                         context=uri)
             except Exception as e:
-                logging.warn("Failed to add LDPRS: %s" % (str(e)))
+                logging.warn("Failed to parse/add RDF: %s" % (str(e)))
                 raise HTTPError(400)
+            # Look at RDF to see if container type
+            logging.debug("RDF--- " + rs.serialize())
+            container_type = rs.get_container_type(uri)
+            if (container_type is not None):
+                # Upgrade to container type
+                rs = LDPC(uri,
+                          content=rs.content,
+                          container_type=container_type)
             return(rs)
         else:
             return(LDPNR(uri=uri,
@@ -280,8 +295,6 @@ class LDPHandler(tornado.web.RequestHandler):
         # Normalize base_uri/ to base_uri
         if (uri == (self.base_uri + '/')):
             uri = self.base_uri
-        logging.debug("uri: %s %s -> %s" %
-                      (self.base_uri, path, uri))
         return(uri)
 
     def uri_to_path(self, uri):
@@ -295,7 +308,7 @@ class LDPHandler(tornado.web.RequestHandler):
         if (self.support_delete):
             methods.append('DELETE')
         if (resource is not None):
-            if  (isinstance(resource, LDPC)):
+            if (isinstance(resource, LDPC)):
                 # 4.2.7.1 LDP servers that support PATCH must include an
                 # Accept-Patch HTTP response header [RFC5789] on HTTP
                 # OPTIONS requests, listing patch document media type(s)

@@ -1,5 +1,6 @@
 """Trilpy store for resources."""
 
+import logging
 from urllib.parse import urljoin
 
 
@@ -13,7 +14,7 @@ class Store(object):
         self.deleted = set()
 
     def add(self, resource, uri=None, context=None, slug=None):
-        """Add resource, optionally with uri."""
+        """Add resource, optionally with specific uri."""
         if (uri is None):
             uri = self._get_uri(context, slug)
         else:
@@ -26,11 +27,24 @@ class Store(object):
             self.deleted.discard(uri)
         self.resources[uri] = resource
         resource.uri = uri
+        if (context):
+            resource.contained_in = context
         return(uri)
 
     def delete(self, uri):
-        """Delete resource and record deletion."""
+        """Delete resource and record deletion.
+
+        If the resource being deleted is recorded as being contained
+        in a container then delete the entry from the container.
+        """
         if (uri in self.resources):
+            resource = self.resources[uri]
+            if (resource.contained_in is not None):
+                try:
+                    self.resources[resource.contained_in].members.remove(uri)
+                except:
+                    logging.warn("OOPS - failed to remove membership triple of %s from %s" %
+                                 (uri, resource.contained_in))
             del self.resources[uri]
             self.deleted.add(uri)
 

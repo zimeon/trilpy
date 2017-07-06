@@ -1,6 +1,7 @@
 """An LDPRS - RDF Source."""
 import context_cache.for_rdflib_jsonld
 import hashlib
+import logging
 from rdflib import Graph, URIRef, Literal
 from rdflib.namespace import RDF, NamespaceManager
 
@@ -24,11 +25,63 @@ class LDPRS(LDPR):
         super(LDPRS, self).__init__(uri)
         self.content = Graph()
 
-    def parse(self, content, content_type='text/turtle'):
-        """Parse RDF and add to this LDPRS."""
+    def parse(self, content, content_type='text/turtle', context=None):
+        """Parse RDF and add to this LDPRS.
+
+        If specified, use context as a the base URI for interpretation
+        of relative URIs in the RDF supplied.
+
+        FIXME -- need to make this work with JSON-LD
+        """
+        if (context is not None and content_type == 'text/turtle'):
+            base = (b'@base <%b> .\n' % (context.encode('utf-8')))
+            content = base + content
         self.content.parse(
             format=self._mime_to_rdflib_type(content_type),
             data=content)
+
+    def get_container_type(self, context, default=None):
+        """Find LDP container type from data supplied.
+
+        Returns the default type or None if there is no matching
+        type information. Will throw and exception if there are
+        conflicting container types specified.
+        """
+        types = self._get_types(context)
+        count = 0
+        last = None
+        for ctype in (LDP.BasicContainer,
+                      LDP.DirectContainer,
+                      LDP.IndirectContainerin):
+            if (ctype in types):
+                last = ctype
+                count += 1
+        if (count > 1):
+            raise Exception("Conflicting container types specified.")
+        elif (count == 1):
+            return(last)
+        return(default)
+
+    def _get_types(self, context):
+        """Return rdf:type properties of context in content.
+
+        FIXME - presumably can make this more efficient!
+        """
+        ctx = URIRef(context)
+        types = set()
+        for (s, p, o) in self.content:
+            if (s == ctx and p == RDF.type):
+                types.add(o)
+                logging.debug("type: %s" % (str(o)))
+        return(types)
+
+    def get_containment_triples(self):
+        """Return set of containment triples in content."""
+        ctriples = Graph()
+        for (s, p, o) in self.content:
+            if (p == LDP.contains):
+                ctriples.add((s, p, o))
+        return(ctriples)
 
     def serialize(self, content_type='text/turtle'):
         """Serialize this resource in given format.
@@ -48,6 +101,12 @@ class LDPRS(LDPR):
         """Add RDF triples from the server."""
         for rdf_type in self.rdf_types:
             graph.add((URIRef(self.uri), RDF.type, URIRef(rdf_type)))
+
+    def server_managed_triples(self):
+        """Graph of RDF triples that would be added from the server."""
+        g = Graph()
+        self.add_server_managed_triples(g)
+        return(g)
 
     @property
     def rdf_types(self):

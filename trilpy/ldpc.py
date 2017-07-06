@@ -11,11 +11,15 @@ class LDPC(LDPRS):
     See <https://www.w3.org/TR/ldp/#ldpc>.
     """
 
-    def __init__(self, uri=None):
+    def __init__(self, uri=None, content=None,
+                 container_type=LDP.BasicContainer):
         """Initialize LDPC."""
         super(LDPC, self).__init__(uri)
+        if (content is not None):
+            self.content = content
+        self.container_type = container_type
         self.members = set()
-        self.membership_predicate = URIRef('http://www.w3.org/ns/ldp#member')
+        self.membership_predicate = URIRef('http://www.w3.org/ns/ldp#contains')
 
     def add_server_managed_triples(self, graph):
         """Add RDF triples from the server.

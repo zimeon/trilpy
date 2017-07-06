@@ -13,6 +13,7 @@ class LDPR(object):
         """Initialize LDPR."""
         self.uri = uri
         self.content = None
+        self.contained_in = None
         self._etag = None
 
     @property
