@@ -28,7 +28,9 @@ class Store(object):
         self.resources[uri] = resource
         resource.uri = uri
         if (context):
+            # Add containment and contains relationships
             resource.contained_in = context
+            self.resources[context].add_contained(uri)
         return(uri)
 
     def delete(self, uri):
@@ -41,7 +43,10 @@ class Store(object):
             resource = self.resources[uri]
             if (resource.contained_in is not None):
                 try:
-                    self.resources[resource.contained_in].contained.remove(uri)
+                    # Delete containment and contains relationships
+                    context = resource.contained_in
+                    resource.contained_in = None
+                    self.resources[context].del_contained(uri)
                 except:
                     logging.warn("OOPS - failed to remove containment triple of %s from %s" %
                                  (uri, resource.contained_in))

@@ -32,14 +32,14 @@ class TestAll(unittest.TestCase):
     def test04_find_return_representation(self):
         """Get return=representation prefernce."""
         (ptype, uris) = find_return_representation([
-          'foo; bar',
-          'return=representation; include="http://www.w3.org/ns/ldp#PreferMinimalContainer"'])
+            'foo; bar',
+            'return=representation; include="http://www.w3.org/ns/ldp#PreferMinimalContainer"'])
         self.assertEqual(ptype, 'include')
         self.assertEqual(uris, ['http://www.w3.org/ns/ldp#PreferMinimalContainer'])
         (ptype, uris) = find_return_representation([
-          'foo; bar',
-          'return = representation; omit ="http://www.w3.org/ns/ldp#PreferMembership http://www.w3.org/ns/ldp#PreferContainment"',
-          'something-else'])
+            'foo; bar',
+            'return = representation; omit ="http://www.w3.org/ns/ldp#PreferMembership http://www.w3.org/ns/ldp#PreferContainment"',
+            'something-else'])
         self.assertEqual(ptype, 'omit')
         self.assertEqual(uris, ['http://www.w3.org/ns/ldp#PreferMembership',
                                 'http://www.w3.org/ns/ldp#PreferContainment'])
@@ -50,7 +50,7 @@ class TestAll(unittest.TestCase):
         self.assertEqual(omits, set())
         omits = ldp_return_representation_omits([
             'return=representation; include="http://www.w3.org/ns/ldp#PreferMinimalContainer"'])
-        self.assertEqual(omits, set(['membership','containment']))
+        self.assertEqual(omits, set(['membership', 'containment']))
         omits = ldp_return_representation_omits([
             'return = representation; omit ="http://www.w3.org/ns/ldp#PreferMembership http://www.w3.org/ns/ldp#PreferContainment"'])
-        self.assertEqual(omits, set(['membership','containment']))
+        self.assertEqual(omits, set(['membership', 'containment']))

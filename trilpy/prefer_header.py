@@ -17,11 +17,13 @@ def _strip(s):
             p.pop()
     return('='.join(p))
 
+
 def parse_prefer_header(header):
     """Parse a single Prefer header, return preference and params."""
     params = [_strip(s) for s in header.split(';')]
     pref = _strip(params.pop(0))
     return(pref, params)
+
 
 def find_preference(prefer_headers, preference):
     """Look for specific preference in headers.
@@ -34,11 +36,12 @@ def find_preference(prefer_headers, preference):
             return(params)
     return()
 
+
 def find_return_representation(prefer_headers):
     """Look for return=representation preference as used in LDP.
 
     Returns type ('omit' or 'include') and list of URIs, else
-    None. 
+    None.
     """
     params = find_preference(prefer_headers, 'return=representation')
     if (len(params) > 1):
@@ -59,11 +62,12 @@ _uri_to_name_map = {
     'http://www.w3.org/ns/ldp#PreferEmptyContainer': 'content'
 }
 
+
 def ldp_return_representation_omits(prefer_headers):
     """Return set of sections to omit in LDP respose.
 
     Three possible sections: 'content', 'membership', 'containment'
-    where we three the include and omit as opposites with these 
+    where we three the include and omit as opposites with these
     three portions completing the response. Note that LDP explicitly
     says that servers may not implement it this way.
     """
@@ -83,4 +87,3 @@ def ldp_return_representation_omits(prefer_headers):
     except Exception as e:
         logging.info("Ignored: " + str(e))
     return(omits)
-

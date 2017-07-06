@@ -13,6 +13,7 @@ from .ldprs import LDPRS
 from .ldpc import LDPC
 from .prefer_header import ldp_return_representation_omits
 
+
 class HTTPError(tornado.web.HTTPError):
     """HTTP Error class for non-2xx responses."""
 
@@ -85,7 +86,6 @@ class LDPHandler(tornado.web.RequestHandler):
         new_resource = self.put_post_resource(uri)
         slug = self.request.headers.get('Slug')
         new_uri = self.store.add(new_resource, context=uri, slug=slug)
-        resource.add_contained(new_uri)
         new_path = self.uri_to_path(new_uri)
         self.set_header("Content-Type", "text/plain")
         self.set_header("Location", new_uri)
