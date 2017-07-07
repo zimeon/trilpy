@@ -3,7 +3,7 @@
 DEMOWARE ONLY: NO ATTEMPT AT AUTH, THREAD SAFETY, PERSISTENCE.
 """
 import logging
-from negotiator import ContentNegotiator, AcceptParameters, ContentType, Language
+from negotiator2 import conneg_on_accept
 import os.path
 import tornado.ioloop
 import tornado.web
@@ -51,7 +51,8 @@ class LDPHandler(tornado.web.RequestHandler):
             content_type = resource.content_type
             content = resource.content
         else:
-            content_type = self.conneg(self.rdf_types)
+            content_type = conneg_on_accept(
+                self.rdf_types, self.request.headers.get("Accept"))
             # Is there a Prefer return=representation header?
             omits = ldp_return_representation_omits(
                 self.request.headers.get_list('Prefer'))
