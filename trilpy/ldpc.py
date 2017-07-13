@@ -22,6 +22,7 @@ class LDPC(LDPRS):
         self.membership_predicate = URIRef('http://www.w3.org/ns/ldp#member')
         self.contains = set()
         self.containment_predicate = URIRef('http://www.w3.org/ns/ldp#contains')
+        self.type_label = 'LDPC'
 
     def add_server_managed_triples(self, graph, omits=None):
         """Add RDF triples from the server.

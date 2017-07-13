@@ -1,5 +1,5 @@
 """An LDPRS - RDF Source."""
-#import context_cache.for_rdflib_jsonld
+# import context_cache.for_rdflib_jsonld
 import hashlib
 import logging
 from rdflib import Graph, URIRef, Literal
@@ -19,6 +19,8 @@ class LDPRS(LDPR):
         'text/turtle': 'turtle',
         'application/ld+json': 'json-ld'
     }
+
+    type_label = 'LDPRS'
 
     def __init__(self, uri=None):
         """Initialize LDPRS."""
