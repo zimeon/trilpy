@@ -1,6 +1,8 @@
 *.pyc
 *.egg-info
 .cache
+build/
+dist/
 report/
 test-output/
 vendor/

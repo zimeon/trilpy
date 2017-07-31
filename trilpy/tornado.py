@@ -31,6 +31,7 @@ class LDPHandler(tornado.web.RequestHandler):
     support_put = True
     support_patch = True
     support_delete = True
+    support_acl = True
     require_if_match_etag = True
     base_uri = 'BASE'
     rdf_types = ['text/turtle', 'application/ld+json']
@@ -41,6 +42,10 @@ class LDPHandler(tornado.web.RequestHandler):
     ldp_rdf_source = str(LDP.RDFSource)
     ldp_nonrdf_source = str(LDP.NonRDFSource)
     constraints_path = '/constraints.txt'
+
+    def initialize(self):
+        """Set up place to accumulate links for Link header."""
+        self._links = []
 
     def head(self):
         """HEAD - GET with no body."""
@@ -70,7 +75,9 @@ class LDPHandler(tornado.web.RequestHandler):
             if (len(omits) > 0):
                 self.set_header("Preference-Applied",
                                 "return=representation")
-        self.set_links('type', resource.rdf_types)
+        self.add_links('type', resource.rdf_types)
+        self.add_links('acl', [self.store.acl(uri)])
+        self.set_link_header()
         self.set_header("Content-Type", content_type)
         self.set_header("Content-Length", len(content))
         self.set_header("Etag", resource.etag)
@@ -81,7 +88,8 @@ class LDPHandler(tornado.web.RequestHandler):
     def post(self):
         """HTTP POST.
 
-        FIXME - ignores Slug.
+        Fedora: https://fcrepo.github.io/fcrepo-specification/#httpPOST
+        LDP: https://www.w3.org/TR/ldp/#ldpr-HTTP_POST
         """
         path = self.request.path
         uri = self.path_to_uri(path)
@@ -278,7 +286,8 @@ class LDPHandler(tornado.web.RequestHandler):
         else:
             # Specific resource
             resource = self.store.resources[uri]
-            self.set_links('type', resource.rdf_type_uris)
+            self.add_links('type', resource.rdf_type_uris)
+            self.set_link_header()
             self.set_allow(resource)
         self.confirm("Options returned")
 
@@ -382,6 +391,19 @@ class LDPHandler(tornado.web.RequestHandler):
                 self.set_header('Accept-Post', ', '.join(self.rdf_types))
         self.set_header('Allow', ', '.join(methods))
 
+    def add_links(self, rel, uris):
+        """Add rel uris to list used for Link header.
+
+        set_link_header() must be called after all links have been added
+        to actually write out the header.
+        """
+        for uri in uris:
+            self._links.append('<%s>; rel="%s"' % (uri, rel))
+
+    def set_link_header(self):
+        """Add Link header with set of rel uris."""
+        self.set_header('Link', ', '.join(self._links))
+
     def set_links(self, rel, uris):
         """Add Link headers with set of rel uris."""
         links = []
@@ -419,13 +441,10 @@ class StatusHandler(tornado.web.RequestHandler):
         self.write("Store has\n")
         self.write("  * %d active resources\n" % (len(self.store.resources)))
         for (name, resource) in sorted(self.store.resources.items()):
-            t = str(type(resource))
-            if (isinstance(resource, LDPC)):
-                t = resource.container_type
-            elif (isinstance(resource, LDPRS)):
-                t = 'LDPRS'
-            elif (isinstance(resource, LDPNR)):
-                t = 'LDPNR'
+            try:
+                t = resource.type_label
+            except:
+                t = str(type(resource))
             self.write("    * %s - %s\n" % (name, t))
         self.write("  * %d deleted resources\n" % (len(self.store.deleted)))
         for name in sorted(self.store.deleted):
@@ -444,11 +463,12 @@ def make_app():
     ])
 
 
-def run(port, store, support_put=True, support_delete=True):
+def run(port, store, support_put=True, support_delete=True, support_acl=True):
     """Run LDP server on port with given store and options."""
     LDPHandler.store = store
     LDPHandler.support_put = support_put
     LDPHandler.support_delete = support_delete
+    LDPHandler.support_acl = support_acl
     LDPHandler.base_uri = store.base_uri
     StatusHandler.store = store
     app = make_app()

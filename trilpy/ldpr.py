@@ -9,12 +9,15 @@ class LDPR(object):
     See <https://www.w3.org/TR/ldp/#ldpr>.
     """
 
+    type_label = 'LDPR'
+
     def __init__(self, uri=None):
         """Initialize LDPR."""
         self.uri = uri
         self.content = None
         self.contained_in = None
         self.member_of = None
+        self.acl = None
         self._etag = None
 
     @property

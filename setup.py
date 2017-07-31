@@ -58,7 +58,8 @@ setup(
     install_requires=[
         "negotiator2",
         "rdflib",
-        "tornado"
+        "tornado",
+        "uuid"
     ],
     test_suite="tests",
     cmdclass={

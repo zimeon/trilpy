@@ -7,6 +7,9 @@ from urllib.parse import urljoin
 class Store(object):
     """Resource store."""
 
+    acl_inheritance_limit = 100
+    acl_default = '/missing.acl'
+
     def __init__(self, base_uri):
         """Initialize empty store with a base_uri."""
         self.base_uri = base_uri
@@ -60,6 +63,26 @@ class Store(object):
                                  (uri, resource.contained_in))
             del self.resources[uri]
             self.deleted.add(uri)
+
+    def acl(self, uri, depth=0):
+        """Find ACL at uri or by following hierarchy of containment.
+
+        FIXME - Opportunity to abstract notion of following hierarchy?
+        """
+        resource = self.resources[uri]
+        if (resource.acl is None):
+            if (resource.contained_in is None):
+                # This is not covered by WAC specification see:
+                # https://github.com/fcrepo/fcrepo-specification/issues/163
+                return(self.acl_default)
+        elif (depth == 0 or
+              self.resources[resource.acl].has_heritable_auths() or
+              resource.contained_in is None):
+            return(resource.acl)
+        # Go up inheritance hierarchy
+        if (depth >= self.acl_inheritance_limit):
+            raise Exception("Exceeded acl_inheritance_limit!")
+        return(self.acl(resource.contained_in, depth + 1))
 
     def _get_uri(self, context=None, slug=None):
         """Get URI for a new resource.

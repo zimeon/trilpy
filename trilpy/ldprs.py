@@ -20,6 +20,8 @@ class LDPRS(LDPR):
         'application/ld+json': 'json-ld'
     }
 
+    type_label = 'LDPRS'
+
     def __init__(self, uri=None):
         """Initialize LDPRS."""
         super(LDPRS, self).__init__(uri)
