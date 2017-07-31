@@ -2,16 +2,20 @@
 
 DEMOWARE ONLY: NO ATTEMPT AT AUTH, THREAD SAFETY, PERSISTENCE.
 """
+import itertools
 import logging
 from negotiator2 import conneg_on_accept
 import os.path
+import requests.utils
 import tornado.ioloop
 import tornado.web
 from urllib.parse import urljoin, urlsplit
+
 from .ldpnr import LDPNR
 from .ldprs import LDPRS
 from .ldpc import LDPC
 from .prefer_header import ldp_return_representation_omits
+from .namespace import LDP
 
 
 class HTTPError(tornado.web.HTTPError):
@@ -30,6 +34,12 @@ class LDPHandler(tornado.web.RequestHandler):
     require_if_match_etag = True
     base_uri = 'BASE'
     rdf_types = ['text/turtle', 'application/ld+json']
+    ldp_container_types = [str(LDP.IndirectContainer),
+                           str(LDP.DirectContainer),
+                           str(LDP.BasicContainer),
+                           str(LDP.Container)]
+    ldp_rdf_source = str(LDP.RDFSource)
+    ldp_nonrdf_source = str(LDP.NonRDFSource)
     constraints_path = '/constraints.txt'
 
     def head(self):
@@ -113,7 +123,11 @@ class LDPHandler(tornado.web.RequestHandler):
             logging.debug("Rejecting PUT to deleted URI")
             raise HTTPError(409)
         replace = False
-        resource = self.put_post_resource(uri)
+        current_type = None
+        if (uri in self.store.resources):
+            replace = True
+            current_type = self.store.resources[uri].rdf_type_uri
+        resource = self.put_post_resource(uri, current_type)
         if (uri in self.store.resources):
             # 5.2.4.1 LDP servers SHOULD NOT allow HTTP PUT to
             # update an LDPC's containment triples; if the
@@ -124,7 +138,6 @@ class LDPHandler(tornado.web.RequestHandler):
                                        resource)
             # OK, do replace
             self.store.delete(uri)
-            replace = True
         self.store.add(resource, uri)
         self.set_status(204 if replace else 201)
         logging.debug("PUT %s to %s OK" % (str(resource), uri))
@@ -188,13 +201,23 @@ class LDPHandler(tornado.web.RequestHandler):
         # ... FIXME - NEED GUTS
         raise HTTPError(499)
 
-    def put_post_resource(self, uri=None):
+    def put_post_resource(self, uri=None, current_type=None):
         """Parse request data for PUT or POST.
 
-        Handles both RDF and Non-RDF sources.
+        Handles both RDF and Non-RDF sources. Look first at the Link header
+        to determine the requested LDP interaction model.
         """
+        model = self.request_ldp_type()
+        if (model is None):
+            # Assume current type on replace where not model specified
+            model = current_type
+        elif (current_type is not None):
+            # FIXME - check for incompatible replacements
+            pass
+        logging.warn('model ' + str(model))
         content_type = self.request_content_type()
-        if (content_type in self.rdf_types):
+        if ((model is None and content_type in self.rdf_types) or
+                model != self.ldp_nonrdf_source):
             try:
                 rs = LDPRS(uri)
                 rs.parse(content=self.request.body,
@@ -274,6 +297,34 @@ class LDPHandler(tornado.web.RequestHandler):
         content_type = cts[0].split(';')[0]
         logging.debug("Request content-type %s" % (content_type))
         return(content_type)
+
+    def request_ldp_type(self):
+        """LDP interaction model URI from request Link rel="type", else None."""
+        links = self.request.headers.get_list('link')
+        if (len(links) > 1):
+            raise HTTPError(400, "Multiple Link headers")
+        elif (len(links) == 0):
+            return(None)
+        # Extra set of types specified
+        types = set()
+        for link in requests.utils.parse_header_links(links[0]):
+            if ('rel' in link and link['rel'] == 'type' and 'url' in link):
+                types.add(link['url'])
+        # Look for LDP types starting with most specific
+        is_ldpnr = (self.ldp_nonrdf_source in types)
+        is_rdf = None
+        for rdf_type in itertools.chain(self.ldp_container_types,
+                                        [self.ldp_rdf_source]):
+            if (rdf_type in types):
+                is_rdf = rdf_type
+                break  # FIXME - ignoring possible container type conflicts
+        # Error conditions
+        if (is_ldpnr and is_rdf):
+            raise HTTPError(400, "Conflicting LDP types in Link headers")
+        elif (is_ldpnr):
+            return(self.ldp_nonrdf_source)
+        else:
+            return(is_rdf)
 
     def conneg(self, supported_types):
         """Return content_type for response by conneg.

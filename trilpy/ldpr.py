@@ -18,8 +18,21 @@ class LDPR(object):
         self._etag = None
 
     @property
+    def rdf_type(self):
+        """Primary RDF type for this LDP Resource."""
+        return(self.rdf_types[0])
+
+    @property
+    def rdf_type_uri(self):
+        """Primary RDF type URI for this LDP Resource."""
+        return(str(self.rdf_type))
+
+    @property
     def rdf_types(self):
-        """List of rdflib RDF types for this LDP Resource."""
+        """List of rdflib RDF types for this LDP Resource.
+
+        First must be the primary type returned by rdf_type.
+        """
         return([LDP.Resource])
 
     @property

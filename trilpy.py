@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 """Trilpy - LDP & Fedora playpen."""
 
+import sys
 import logging
 import optparse
+import trilpy.require_python3
 from trilpy.store import Store
 from trilpy.ldpc import LDPC
 from trilpy.tornado import run

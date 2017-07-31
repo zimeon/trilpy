@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Test trilpy by running on localhost."""
+import trilpy.require_python3
 import unittest
 from urllib.parse import urljoin
 from subprocess import Popen
@@ -12,6 +13,8 @@ baseurl = 'http://localhost:' + str(port) + '/'
 
 class TestAll(unittest.TestCase):
     """TestAll class to run tests."""
+
+    LDPC_URI = baseurl
 
     def setUp(self):
         """Start trilpy."""
@@ -79,6 +82,38 @@ class TestAll(unittest.TestCase):
                                   'Content-Type': 'text/turtle'},
                          data='<http://ex.org/a> <http://ex.org/b> "3".')
         self.assertEqual(r.status_code, 412)
+
+    def test_fcrepo_3_1_1(self):
+        """Resource creation SHOULD follow Link: rel='type' for LDP-NR.
+
+        https://fcrepo.github.io/fcrepo-specification/#ldpnr-ixn-model
+        """
+        # POST Turtle object as LDR-NR
+        r = requests.post(self.LDPC_URI,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                          data='<http://ex.org/a> <http://ex.org/b> "123".')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        self.assertRegexpMatches(uri, baseurl)
+        # HEAD to get etag
+        r = requests.head(uri)
+        etag = r.headers.get('etag')
+        self.assertTrue(etag)
+        self.assertEqual(r.headers.get('Content-Type'), 'text/turtle')
+        # Must not be reported as am LDP-RS container...
+        links = r.headers.get('Link')
+        self.assertNotIn('http://www.w3.org/ns/ldp#RDFSource', links)
+        self.assertNotIn('http://www.w3.org/ns/ldp#Container', links)
+        self.assertNotIn('http://www.w3.org/ns/ldp#BasicContainer', links)
+        self.assertNotIn('http://www.w3.org/ns/ldp#DirectContainer', links)
+        self.assertNotIn('http://www.w3.org/ns/ldp#IndirectContainer', links)
+        # As LDP-NR should be OK to replace with diff media type
+        r = requests.put(uri,
+                         headers={'If-Match': etag,
+                                  'Content-Type': 'text/stuff'},
+                         data='Hello there!')
+        self.assertEqual(r.status_code, 204)
 
 # If run from command line, do tests
 if __name__ == '__main__':

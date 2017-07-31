@@ -1,5 +1,6 @@
 """An LDPNR - LDP Non-RDF Source."""
-from trilpy.ldpr import LDPR
+from .ldpr import LDPR
+from .namespace import LDP
 
 
 class LDPNR(LDPR):
@@ -17,3 +18,8 @@ class LDPNR(LDPR):
         super(LDPNR, self).__init__(uri)
         self.content = content
         self.content_type = content_type
+
+    @property
+    def rdf_types(self):
+        """List of RDF types for this resource."""
+        return([LDP.NonRDFSource])

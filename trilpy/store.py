@@ -32,7 +32,7 @@ class Store(object):
             # Add containment and contains relationships
             resource.contained_in = context
             container.add_contained(uri)
-            #if (container.container_type == LDP.DirectContainer):
+            # if (container.container_type == LDP.DirectContainer):
             #    resource.member_of = context
             #    container.add_member(uri)
         return(uri)
