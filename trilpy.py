@@ -4,13 +4,7 @@
 import sys
 import logging
 import optparse
-import trilpy.require_python3
-from trilpy.store import Store
-from trilpy.ldpc import LDPC
-from trilpy.acl import ACLR
-from trilpy.tornado import run
-from trilpy.namespace import LDP
-
+from trilpy import Store, LDPC, ACLR, LDP, run
 
 def main():
     """Command line handler."""
