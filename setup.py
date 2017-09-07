@@ -59,7 +59,8 @@ setup(
         "negotiator2",
         "rdflib",
         "tornado",
-        "uuid"
+        "uuid",
+        "requests"
     ],
     test_suite="tests",
     cmdclass={
