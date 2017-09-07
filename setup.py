@@ -56,10 +56,11 @@ setup(
     description='trilpy - A Fedora/LDP test implementation',
     long_description=open('README.md').read(),
     install_requires=[
-        "negotiator2",
-        "rdflib",
-        "tornado",
-        "uuid"
+        "negotiator2>=2.0.1",
+        "rdflib>=4.2.1",
+        "tornado>=4.4.2",
+        "uuid>=1.30",
+        "requests>=2.18.4"
     ],
     test_suite="tests",
     cmdclass={
