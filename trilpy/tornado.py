@@ -76,7 +76,7 @@ class LDPHandler(tornado.web.RequestHandler):
                 self.set_header("Preference-Applied",
                                 "return=representation")
         self.add_links('type', resource.rdf_types)
-        self.add_links('acl', [self.store.acl(uri)])
+        self.add_links('acl', [self.store.individual_acl(uri)])
         self.set_link_header()
         self.set_header("Content-Type", content_type)
         self.set_header("Content-Length", len(content))
@@ -219,7 +219,7 @@ class LDPHandler(tornado.web.RequestHandler):
         content_type = self.request_content_type()
         content_type_is_rdf = content_type in self.rdf_types
         logging.warn("got-content-type " + content_type)
-        if (current_type is not None): # Replacements
+        if (current_type is not None):  # Replacements
             if (model is None):
                 # Assume current type on replace where not model specified
                 model = current_type
@@ -237,21 +237,17 @@ class LDPHandler(tornado.web.RequestHandler):
                 logging.warn("Unsupported RDF type: %s" % (content_type))
                 raise HTTPError(415)
             try:
-                rs = LDPRS(uri)
+                if (model in self.ldp_container_types):
+                    rs = LDPC(uri, container_type=model)
+                else:
+                    rs = LDPRS(uri)
                 rs.parse(content=self.request.body,
                          content_type=content_type,
                          context=uri)
             except Exception as e:
                 logging.warn("Failed to parse/add RDF: %s" % (str(e)))
                 raise HTTPError(400)
-            # Look at RDF to see if container type
             logging.debug("RDF--- " + rs.serialize())
-            container_type = rs.get_container_type(uri)
-            if (container_type is not None):
-                # Upgrade to container type
-                rs = LDPC(uri,
-                          content=rs.content,
-                          container_type=container_type)
             return(rs)
         else:
             return(LDPNR(uri=uri,

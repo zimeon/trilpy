@@ -9,6 +9,7 @@ class Store(object):
 
     acl_inheritance_limit = 100
     acl_default = '/missing.acl'
+    acl_suffix = '.acl'
 
     def __init__(self, base_uri):
         """Initialize empty store with a base_uri."""
@@ -83,6 +84,19 @@ class Store(object):
         if (depth >= self.acl_inheritance_limit):
             raise Exception("Exceeded acl_inheritance_limit!")
         return(self.acl(resource.contained_in, depth + 1))
+
+    def individual_acl(self, uri):
+        """ACL uri for the individual ACL for uri, which may or may not exist.
+
+        Response headers are required to return the ACL URI for the individual
+        ACL for the specified resource. That may or may not exist but the location
+        will allow a client to create one in the right location.
+        """
+        resource = self.resources[uri]
+        if (resource.acl is None):
+            return(uri + self.acl_suffix)
+        else:
+            return(resource.acl)
 
     def _get_uri(self, context=None, slug=None):
         """Get URI for a new resource.

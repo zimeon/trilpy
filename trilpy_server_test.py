@@ -145,6 +145,56 @@ class TestAll(unittest.TestCase):
         # Cleanup
         r = requests.delete(url)
 
+    def test_fcrepo_3_1_1(self):
+        """Resource creation SHOULD follow Link: rel='type' for LDP-NR.
+
+        https://fcrepo.github.io/fcrepo-specification/#ldpnr-ixn-model
+        """
+        # POST Turtle object as LDR-NR
+        r = requests.post(self.LDPC_URI,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                          data='<http://ex.org/a> <http://ex.org/b> "123".')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        self.assertRegex(uri, self.rooturi)
+        # HEAD to get etag and test type
+        r = requests.head(uri)
+        etag = r.headers.get('etag')
+        self.assertTrue(etag)
+        self.assertEqual(r.headers.get('Content-Type'), 'text/turtle')
+        # Must not be reported as an LDP-RS or container...
+        links = r.headers.get('Link')
+        self.assertNotIn('http://www.w3.org/ns/ldp#RDFSource', links)
+        self.assertNotIn('http://www.w3.org/ns/ldp#Container', links)
+        self.assertNotIn('http://www.w3.org/ns/ldp#BasicContainer', links)
+        self.assertNotIn('http://www.w3.org/ns/ldp#DirectContainer', links)
+        self.assertNotIn('http://www.w3.org/ns/ldp#IndirectContainer', links)
+        # As LDP-NR should be OK to replace with diff media type
+        r = requests.put(uri,
+                         headers={'If-Match': etag,
+                                  'Content-Type': 'text/stuff'},
+                         data='Hello there!')
+        self.assertEqual(r.status_code, 204)
+
+    def test_fedore_3_1_2(self):
+        """Check Implementations MUST support creation and management of containers."""
+        # Should be able to create different container types and get back
+        # their type in link header
+        for container_type in ['http://www.w3.org/ns/ldp#BasicContainer',
+                               'http://www.w3.org/ns/ldp#DirectContainer',
+                               'http://www.w3.org/ns/ldp#IndirectContainer']:
+            r = requests.post(self.LDPC_URI,
+                              headers={'Content-Type': 'text/turtle',
+                                       'Link': '<' + container_type + '>; rel="type"'},
+                              data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+            self.assertEqual(r.status_code, 201)
+            uri = r.headers.get('Location')
+            self.assertTrue(uri)
+            r = requests.head(uri)
+            links = r.headers.get('Link')
+            self.assertIn(container_type, links)
+
     def test_fedora_5_1(self):
         """Check ACLs are LDP RDF Sources."""
         r = requests.head(self.rooturi)
@@ -174,7 +224,7 @@ class TestAll(unittest.TestCase):
         acls = self.find_links(r.headers.get('link'), 'acl')
         self.assertEqual(len(acls), 1)
         root_acl = acls[0]
-        # POST LDR-NR under root, expect to get same ACL
+        # POST LDR-NR under root, expect to get new ACL
         r = requests.post(self.rooturi,
                           headers={'Content-Type': 'text/plain',
                                    'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
@@ -186,22 +236,20 @@ class TestAll(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         acls = self.find_links(r.headers.get('link'), 'acl')
         self.assertEqual(len(acls), 1)
-        self.assertEqual(acls[0], root_acl)
+        self.assertNotEqual(acls[0], root_acl)
+        self.assertNotEqual(acls[0], child_uri)
         # Cleanup
         r = requests.delete(child_uri)
         # Try two level POST
-        # FIXME - currently needs data to determine type, should use Link
         r = requests.post(self.rooturi,
                           headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'},
-                          data='<> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/ldp#BasicContainer> .')
+                                   'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'})
         self.assertEqual(r.status_code, 201)
         child_uri = r.headers.get('Location')
         self.assertTrue(child_uri)
         r = requests.post(child_uri,
                           headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'},
-                          data='<> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/ldp#BasicContainer> .')
+                                   'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'})
         self.assertEqual(r.status_code, 201)
         grandchild_uri = r.headers.get('Location')
         self.assertTrue(grandchild_uri)
@@ -209,7 +257,8 @@ class TestAll(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         acls = self.find_links(r.headers.get('link'), 'acl')
         self.assertEqual(len(acls), 1)
-        self.assertEqual(acls[0], root_acl)
+        self.assertNotEqual(acls[0], root_acl)
+        self.assertNotEqual(acls[0], child_uri)
         #
         # FIXME - Add check of skipping over intermediate containment resource
         # FIXME - that has no heritable auths
@@ -217,38 +266,6 @@ class TestAll(unittest.TestCase):
         # Cleanup
         r = requests.delete(child_uri)
         r = requests.delete(grandchild_uri)
-
-    def test_fcrepo_3_1_1(self):
-        """Resource creation SHOULD follow Link: rel='type' for LDP-NR.
-
-        https://fcrepo.github.io/fcrepo-specification/#ldpnr-ixn-model
-        """
-        # POST Turtle object as LDR-NR
-        r = requests.post(self.LDPC_URI,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
-                          data='<http://ex.org/a> <http://ex.org/b> "123".')
-        self.assertEqual(r.status_code, 201)
-        uri = r.headers.get('Location')
-        self.assertRegexpMatches(uri, self.rooturi)
-        # HEAD to get etag
-        r = requests.head(uri)
-        etag = r.headers.get('etag')
-        self.assertTrue(etag)
-        self.assertEqual(r.headers.get('Content-Type'), 'text/turtle')
-        # Must not be reported as an LDP-RS or container...
-        links = r.headers.get('Link')
-        self.assertNotIn('http://www.w3.org/ns/ldp#RDFSource', links)
-        self.assertNotIn('http://www.w3.org/ns/ldp#Container', links)
-        self.assertNotIn('http://www.w3.org/ns/ldp#BasicContainer', links)
-        self.assertNotIn('http://www.w3.org/ns/ldp#DirectContainer', links)
-        self.assertNotIn('http://www.w3.org/ns/ldp#IndirectContainer', links)
-        # As LDP-NR should be OK to replace with diff media type
-        r = requests.put(uri,
-                         headers={'If-Match': etag,
-                                  'Content-Type': 'text/stuff'},
-                         data='Hello there!')
-        self.assertEqual(r.status_code, 204)
 
 
 # If run from command line, do tests
