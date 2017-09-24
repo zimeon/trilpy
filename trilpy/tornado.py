@@ -216,16 +216,26 @@ class LDPHandler(tornado.web.RequestHandler):
         to determine the requested LDP interaction model.
         """
         model = self.request_ldp_type()
-        if (model is None):
-            # Assume current type on replace where not model specified
-            model = current_type
-        elif (current_type is not None):
-            # FIXME - check for incompatible replacements
-            pass
-        logging.warn('model ' + str(model))
         content_type = self.request_content_type()
-        if ((model is None and content_type in self.rdf_types) or
-                model != self.ldp_nonrdf_source):
+        content_type_is_rdf = content_type in self.rdf_types
+        logging.warn("got-content-type " + content_type)
+        if (current_type is not None): # Replacements
+            if (model is None):
+                # Assume current type on replace where not model specified
+                model = current_type
+            else:
+                # Check for incompatible replacements
+                if (model != self.ldp_nonrdf_source and not content_type_is_rdf):
+                    logging.warn("Attempt to replace LDPRS (or subclass) with non-RDF type %s" % (content_type))
+                    raise HTTPError(415)
+        elif (model is None):
+            # Take default model (LDPRS or LDPNR) from content type
+            model = self.ldp_rdf_source if content_type_is_rdf else self.ldp_nonrdf_source
+        logging.warn('model ' + str(model))
+        if (model != self.ldp_nonrdf_source):
+            if (not content_type_is_rdf):
+                logging.warn("Unsupported RDF type: %s" % (content_type))
+                raise HTTPError(415)
             try:
                 rs = LDPRS(uri)
                 rs.parse(content=self.request.body,
