@@ -14,10 +14,10 @@ from .namespace import LDP, ACL
 class ACLR(LDPRS):
     """An ACL resource is an LDP RDF Source.
 
-    "The linked Access Control List Resource (ACL) for a controlled
+    Fedora: "The linked Access Control List Resource (ACL) for a controlled
     resource by a conforming server must itself be an LDPRS. This
     ACL resource should be located in the same server as the
-    controlled resource.
+    controlled resource."
     """
 
     type_label = 'ACLR'
