@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 """Test trilpy by running on localhost."""
-import trilpy.require_python3
 import argparse
 import unittest
 from urllib.parse import urljoin
-from subprocess import Popen
+from subprocess import Popen, run
 import re
 import requests
 import sys
@@ -20,6 +19,7 @@ class TestAll(unittest.TestCase):
     LDPC_URI = rooturi
     start_trilpy = True
     new_for_each_test = False
+    run_ldp_tests = False
 
     @classmethod
     def _start_trilpy(cls):
@@ -103,6 +103,16 @@ class TestAll(unittest.TestCase):
 #        self.assertEqual(r.status_code, 200)
 #        r = requests.get(url)
 #        self.assertEqual(r.status_code, 410)
+
+    def test_ldp_testsuite(self):
+        """Run the standard LDP testsuite."""
+        if (not self.run_ldp_tests):
+            return
+        base_uri = 'http://localhost:' + str(self.port)
+        p = run('java -jar vendor/ldp-testsuite-0.2.0-SNAPSHOT-shaded.jar --server %s '
+                '--includedGroups MUST SHOULD --excludedGroups MANUAL --basic'
+                % (base_uri), shell=True)
+        self.assertEqual(p.returncode, 2)  # FIXME - what should exit code be?
 
     def test_ldp_4_2_4_5(self):
         """If-Match on ETag for PUT to replace."""
@@ -226,7 +236,7 @@ class TestAll(unittest.TestCase):
         etag = r.headers.get('etag')
         self.assertTrue(etag)
         self.assertEqual(r.headers.get('Content-Type'), 'text/turtle')
-        # Must not be reported as am LDP-RS container...
+        # Must not be reported as an LDP-RS or container...
         links = r.headers.get('Link')
         self.assertNotIn('http://www.w3.org/ns/ldp#RDFSource', links)
         self.assertNotIn('http://www.w3.org/ns/ldp#Container', links)
@@ -240,6 +250,7 @@ class TestAll(unittest.TestCase):
                          data='Hello there!')
         self.assertEqual(r.status_code, 204)
 
+
 # If run from command line, do tests
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
@@ -248,11 +259,14 @@ if __name__ == '__main__':
     parser.add_argument('--fresh', action='store_true',
                         help="Start trilpy fresh for each test (slow)")
     parser.add_argument('--port', '-p', type=int, default=9999,
-                        help="Start trilp on port (default %default)")
+                        help="Start trilpy on port (default %default)")
+    parser.add_argument('--run-ldp-tests', action='store_true',
+                        help="Also run the LDP testsuite")
     parser.add_argument('--VeryVerbose', '-V', action='store_true',
                         help="be verbose.")
     (opts, args) = parser.parse_known_args()
     TestAll.port = opts.port
+    TestAll.run_ldp_tests = opts.run_ldp_tests
     if (opts.rooturi):
         TestAll.start_trilpy = False
         TestAll.rooturi = opts.rooturi
