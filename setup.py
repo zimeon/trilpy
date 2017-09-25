@@ -58,6 +58,7 @@ setup(
     install_requires=[
         "negotiator2>=2.0.1",
         "rdflib>=4.2.1",
+        "rdflib-jsonld>=0.4.0",
         "tornado>=4.4.2",
         "uuid>=1.30",
         "requests>=2.18.4"
