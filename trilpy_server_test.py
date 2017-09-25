@@ -33,7 +33,17 @@ class TCaseWithSetup(unittest.TestCase):
         cls.proc = Popen(['/usr/bin/env', 'python', './trilpy.py',
                           '-v', '-p', str(cls.port)])
         print("Started trilpy (pid=%d)" % (cls.proc.pid))
-        time.sleep(10)
+        for n in range(0, 20):
+            time.sleep(1)
+            try:
+                r = requests.head(cls.rooturi, timeout=0.5)
+                if (r.status_code == 200):
+                    break
+                else:
+                    raise Exception("Server started by returns bad status code %d" % (r.status_code))
+            except requests.exceptions.Timeout:
+                pass
+            print("Waiting on trilpy startup (%ds)..." % (n))
 
     @classmethod
     def _stop_trilpy(cls):
@@ -107,7 +117,7 @@ class TestLDPSuite(TCaseWithSetup):
 
         The exit codes from the testsuite seem to be done with a bitmask, see e.g.
         https://github.com/apache/marmotta/blob/develop/platform/marmotta-ldp/src/test/java/org/apache/marmotta/platform/ldp/LdpSuiteTest.java#L116
-        So: 
+        So:
             1 - failure
             2 - skipped
             8 - no tests
@@ -157,32 +167,6 @@ class TestLDP(TCaseWithSetup):
 
 class TestFedora(TCaseWithSetup):
     """TestFedora class to run Fedora specific tests."""
-
-    def test01_unknown_paths(self):
-        """Expect 404 for bad path."""
-        url = urljoin(self.rooturi, 'does_not_exist')
-        r = requests.get(url)
-        self.assertEqual(r.status_code, 404)
-        r = requests.head(url)
-        self.assertEqual(r.status_code, 404)
-        r = requests.post(url)
-        self.assertEqual(r.status_code, 404)
-        r = requests.delete(url)
-        self.assertEqual(r.status_code, 404)
-
-    def test02_b(self):
-        """Another test."""
-        r = requests.get(urljoin(self.rooturi, '/'))
-        self.assertEqual(r.status_code, 200)
-
-#    def test03_delete_root_ldpc(self):
-#        """Delete the LDPC at /."""
-#        url = urljoin(self.rooturi, '/')
-#        r = requests.delete(url)
-#        self.assertEqual(r.status_code, 200)
-#        r = requests.get(url)
-#        self.assertEqual(r.status_code, 410)
-
 
     def test_fcrepo_3_1_1(self):
         """Resource creation SHOULD follow Link: rel='type' for LDP-NR.
@@ -391,6 +375,42 @@ class TestFedora(TCaseWithSetup):
         # Cleanup
         r = requests.delete(child_uri)
         r = requests.delete(grandchild_uri)
+
+
+class TestTrilpy(TCaseWithSetup):
+    """TestTrilpy class to run miscellaneous or trilpy specific tests."""
+
+    def test01_unknown_paths(self):
+        """Expect 404 for bad path."""
+        url = urljoin(self.rooturi, 'does_not_exist')
+        r = requests.get(url)
+        self.assertEqual(r.status_code, 404)
+        r = requests.head(url)
+        self.assertEqual(r.status_code, 404)
+        r = requests.post(url)
+        self.assertEqual(r.status_code, 404)
+        r = requests.delete(url)
+        self.assertEqual(r.status_code, 404)
+
+    def test02_root_container(self):
+        """Root container."""
+        r = requests.get(urljoin(self.rooturi, '/'))
+        self.assertEqual(r.status_code, 200)
+
+    def test03_delete_resource_get_gone(self):
+        """Delete the LDPC at /."""
+        uri = self.post_ldpnr(data=b'text')
+        r = requests.head(uri)
+        self.assertEqual(r.status_code, 200)
+        r = requests.delete(uri)
+        self.assertEqual(r.status_code, 200)
+        # ... gives 410 on uri noe
+        r = requests.head(uri)
+        self.assertEqual(r.status_code, 410)
+        r = requests.get(uri)
+        self.assertEqual(r.status_code, 410)
+        r = requests.post(uri, data='')
+        self.assertEqual(r.status_code, 410)
 
 
 # If run from command line, do tests
