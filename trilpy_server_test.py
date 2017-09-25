@@ -4,6 +4,7 @@ import argparse
 import unittest
 from urllib.parse import urljoin
 from subprocess import Popen, run
+from rdflib import Graph, URIRef, Literal
 import re
 import requests
 import sys
@@ -214,10 +215,10 @@ class TestAll(unittest.TestCase):
         if (not self.digest):
             return()
         r = requests.post(self.rooturi,
-                  headers={'Content-Type': 'text/plain',
-                           'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
-                           'Digest': 'SURELY-NOT-SUPPORTED-TYPE'},  # FIXME - Digest syntax??
-                  data='stuff')
+                          headers={'Content-Type': 'text/plain',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                                   'Digest': 'SURELY-NOT-SUPPORTED-TYPE'},  # FIXME - Digest syntax??
+                          data='stuff')
         self.assertEqual(r.status_code, 400)
         # FIXME - Add invalid digest for valid type
         # FIXME - Add valid digest for valid type
@@ -261,6 +262,29 @@ class TestAll(unittest.TestCase):
                              data='Not RDF')
             self.assertEqual(r.status_code, 409)
         # FIXME - Alsmot check incompatible LDPRS replacements
+
+    def test_fedore_3_4_1(self):
+        """Check PUT to LDPRS to update triples."""
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                          data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        self.assertTrue(uri)
+        r = requests.head(uri)
+        etag = r.headers.get('etag')
+        r = requests.put(uri,
+                         headers={'Content-Type': 'text/turtle',
+                                  'If-Match': etag,
+                                  'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                         data='<http://ex.org/a> <http://ex.org/b> "ZYX".')
+        self.assertEqual(r.status_code, 204)
+        r = requests.get(uri)
+        g = Graph()
+        g.parse(format='turtle', data=r.content)
+        self.assertNotIn(Literal('xyz'), g.objects())
+        self.assertIn(Literal('ZYX'), g.objects())
 
     def test_fedora_3_4_2(self):
         """Check LDPNR MUST support PUT to replace content."""
