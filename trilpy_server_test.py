@@ -114,7 +114,7 @@ class TestLDPSuite(TCaseWithSetup):
         thus we allow 2 only to allow skips
         """
         base_uri = 'http://localhost:' + str(self.port)
-        p = run('java -jar vendor/ldp-testsuite-0.2.0-SNAPSHOT-shaded.jar --server %s '
+        p = run('java -jar ./vendor/ldp-testsuite-0.2.0-SNAPSHOT-shaded.jar --server %s '
                 '--includedGroups MUST SHOULD --excludedGroups MANUAL --basic'
                 % (base_uri), shell=True)
         self.assertEqual(p.returncode | 2, 2)  # allow skipped tests
