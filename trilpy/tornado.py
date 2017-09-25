@@ -206,6 +206,7 @@ class LDPHandler(tornado.web.RequestHandler):
             logging.debug("Rejecting PATCH to non-LDPRS (%s)" %
                           (str(resource)))
             raise HTTPError(405)
+        self.check_digest()
         # ... FIXME - NEED GUTS
         raise HTTPError(499)
 
@@ -232,6 +233,7 @@ class LDPHandler(tornado.web.RequestHandler):
             # Take default model (LDPRS or LDPNR) from content type
             model = self.ldp_rdf_source if content_type_is_rdf else self.ldp_nonrdf_source
         logging.warn('model ' + str(model))
+        self.check_digest()
         if (model != self.ldp_nonrdf_source):
             if (not content_type_is_rdf):
                 logging.warn("Unsupported RDF type: %s" % (content_type))
@@ -340,6 +342,16 @@ class LDPHandler(tornado.web.RequestHandler):
             return(self.ldp_nonrdf_source)
         else:
             return(is_rdf)
+
+    def check_digest(self):
+        """Check Digest if present, raise 409 if bad, 400 if not supported."""
+        digest_header = self.request.headers.get("Digest")
+        if (digest_header is None):
+            return()
+        digest_type = digest_header
+        # FIXME - should support some digests
+        logging.warn("Unsupported digest type %s" % (digest_type))
+        raise HTTPError(400)
 
     def conneg(self, supported_types):
         """Return content_type for response by conneg.
