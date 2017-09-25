@@ -33,7 +33,7 @@ class TCaseWithSetup(unittest.TestCase):
         cls.proc = Popen(['/usr/bin/env', 'python', './trilpy.py',
                           '-v', '-p', str(cls.port)])
         print("Started trilpy (pid=%d)" % (cls.proc.pid))
-        time.sleep(2)
+        time.sleep(10)
 
     @classmethod
     def _stop_trilpy(cls):
