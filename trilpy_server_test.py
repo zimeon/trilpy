@@ -12,8 +12,12 @@ import time
 import uuid
 
 
-class TestAll(unittest.TestCase):
-    """TestAll class to run tests."""
+class TCaseWithSetup(unittest.TestCase):
+    """Derivative TestCase class with setup to start/stop server and utility methods.
+
+    This class is named TCaseWithSetup (instead of TestCaseWithSetup) in order that unittest
+    doesn't pick it up, instantiate and run as part of the discovery process.
+    """
 
     port = 9999
     rooturi = 'http://localhost:' + str(port) + '/'
@@ -94,40 +98,30 @@ class TestAll(unittest.TestCase):
         self.assertTrue(ldpnr_uri)
         return(ldpnr_uri)
 
-    def test01_unknown_paths(self):
-        """Expect 404 for bad path."""
-        url = urljoin(self.rooturi, 'does_not_exist')
-        r = requests.get(url)
-        self.assertEqual(r.status_code, 404)
-        r = requests.head(url)
-        self.assertEqual(r.status_code, 404)
-        r = requests.post(url)
-        self.assertEqual(r.status_code, 404)
-        r = requests.delete(url)
-        self.assertEqual(r.status_code, 404)
 
-    def test02_b(self):
-        """Another test."""
-        r = requests.get(urljoin(self.rooturi, '/'))
-        self.assertEqual(r.status_code, 200)
-
-#    def test03_delete_root_ldpc(self):
-#        """Delete the LDPC at /."""
-#        url = urljoin(self.rooturi, '/')
-#        r = requests.delete(url)
-#        self.assertEqual(r.status_code, 200)
-#        r = requests.get(url)
-#        self.assertEqual(r.status_code, 410)
+class TestLDPSuite(TCaseWithSetup):
+    """TestLDPSuite class to run the Java LDP testsuite."""
 
     def test_ldp_testsuite(self):
-        """Run the standard LDP testsuite."""
-        if (not self.run_ldp_tests):
-            return
+        """Run the standard LDP testsuite.
+
+        The exit codes from the testsuite seem to be done with a bitmask, see e.g.
+        https://github.com/apache/marmotta/blob/develop/platform/marmotta-ldp/src/test/java/org/apache/marmotta/platform/ldp/LdpSuiteTest.java#L116
+        So: 
+            1 - failure
+            2 - skipped
+            8 - no tests
+        thus we allow 2 only to allow skips
+        """
         base_uri = 'http://localhost:' + str(self.port)
         p = run('java -jar vendor/ldp-testsuite-0.2.0-SNAPSHOT-shaded.jar --server %s '
                 '--includedGroups MUST SHOULD --excludedGroups MANUAL --basic'
                 % (base_uri), shell=True)
-        self.assertEqual(p.returncode, 2)  # FIXME - what should exit code be?
+        self.assertEqual(p.returncode | 2, 2)  # allow skipped tests
+
+
+class TestLDP(TCaseWithSetup):
+    """TestLDP class to run LDP tests."""
 
     def test_ldp_4_2_4_5(self):
         """If-Match on ETag for PUT to replace."""
@@ -159,6 +153,36 @@ class TestAll(unittest.TestCase):
         self.assertEqual(r.status_code, 412)
         # Cleanup
         r = requests.delete(url)
+
+
+class TestFedora(TCaseWithSetup):
+    """TestFedora class to run Fedora specific tests."""
+
+    def test01_unknown_paths(self):
+        """Expect 404 for bad path."""
+        url = urljoin(self.rooturi, 'does_not_exist')
+        r = requests.get(url)
+        self.assertEqual(r.status_code, 404)
+        r = requests.head(url)
+        self.assertEqual(r.status_code, 404)
+        r = requests.post(url)
+        self.assertEqual(r.status_code, 404)
+        r = requests.delete(url)
+        self.assertEqual(r.status_code, 404)
+
+    def test02_b(self):
+        """Another test."""
+        r = requests.get(urljoin(self.rooturi, '/'))
+        self.assertEqual(r.status_code, 200)
+
+#    def test03_delete_root_ldpc(self):
+#        """Delete the LDPC at /."""
+#        url = urljoin(self.rooturi, '/')
+#        r = requests.delete(url)
+#        self.assertEqual(r.status_code, 200)
+#        r = requests.get(url)
+#        self.assertEqual(r.status_code, 410)
+
 
     def test_fcrepo_3_1_1(self):
         """Resource creation SHOULD follow Link: rel='type' for LDP-NR.
@@ -371,28 +395,34 @@ class TestAll(unittest.TestCase):
 
 # If run from command line, do tests
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--rooturi', '-r', action='store', default='',
+    parser = argparse.ArgumentParser(add_help=False,
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--rooturi', action='store', default=None,
                         help="Use LDP at given rooturi rather than running trilpy")
     parser.add_argument('--fresh', action='store_true',
                         help="Start trilpy fresh for each test (slow)")
-    parser.add_argument('--port', '-p', type=int, default=9999,
-                        help="Start trilpy on port (default %default)")
-    parser.add_argument('--run-ldp-tests', action='store_true',
-                        help="Also run the LDP testsuite")
+    parser.add_argument('--port', type=int, default=9999,
+                        help="Start trilpy on port")
     parser.add_argument('--digest', action='store', default='sha1',
                         help="Digest type to test.")
     parser.add_argument('--VeryVerbose', '-V', action='store_true',
                         help="be verbose.")
+    parser.add_argument('--help', '-h', action='store_true',
+                        help="show this help message and exit")
     (opts, args) = parser.parse_known_args()
-    TestAll.port = opts.port
-    TestAll.run_ldp_tests = opts.run_ldp_tests
-    TestAll.digest = opts.digest
+    TCaseWithSetup.port = opts.port
+    TCaseWithSetup.digest = opts.digest
     if (opts.rooturi):
-        TestAll.start_trilpy = False
-        TestAll.rooturi = opts.rooturi
+        TCaseWithSetup.start_trilpy = False
+        TCaseWithSetup.rooturi = opts.rooturi
     else:
-        TestAll.new_for_each_test = opts.fresh
+        TCaseWithSetup.new_for_each_test = opts.fresh
+    if (opts.help):
+        # Show my help and then pass on to unittest, wish there were just a way
+        # to pass in the parser object (but I don't see one)
+        parser.print_help()
+        args.append('--help')
+        print('\nand see also arguments from unittest:\n')
     # Remaining args go to unittest
     unittest.main(verbosity=(2 if opts.VeryVerbose else 1),
                   argv=sys.argv[:1] + args)
