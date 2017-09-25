@@ -20,6 +20,7 @@ class TestAll(unittest.TestCase):
     start_trilpy = True
     new_for_each_test = False
     run_ldp_tests = False
+    digest = None
 
     @classmethod
     def _start_trilpy(cls):
@@ -78,6 +79,19 @@ class TestAll(unittest.TestCase):
             return(len(values) > 0)
         else:
             return(value in values)
+
+    def post_ldpnr(self, uri=None, data='', content_type='text/plain'):
+        """POST to create a LDPNR, return location."""
+        if (uri is None):
+            uri = self.rooturi
+        r = requests.post(uri,
+                          headers={'Content-Type': content_type,
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                          data=data)
+        self.assertEqual(r.status_code, 201)
+        ldpnr_uri = r.headers.get('Location')
+        self.assertTrue(ldpnr_uri)
+        return(ldpnr_uri)
 
     def test01_unknown_paths(self):
         """Expect 404 for bad path."""
@@ -195,6 +209,74 @@ class TestAll(unittest.TestCase):
             links = r.headers.get('Link')
             self.assertIn(container_type, links)
 
+    def test_fedora_3_3_1(self):
+        """Check handling of Digest header."""
+        if (not self.digest):
+            return()
+        r = requests.post(self.rooturi,
+                  headers={'Content-Type': 'text/plain',
+                           'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                           'Digest': 'SURELY-NOT-SUPPORTED-TYPE'},  # FIXME - Digest syntax??
+                  data='stuff')
+        self.assertEqual(r.status_code, 400)
+        # FIXME - Add invalid digest for valid type
+        # FIXME - Add valid digest for valid type
+
+    def test_fedora_3_4(self):
+        """Check PUT and content model handling."""
+        # LDPNR cannot be replaced with LDPRS, or LDPC types
+        uri = self.post_ldpnr(data=b'I am an LDPNR, can only be replace with same')
+        r = requests.head(uri)
+        etag = r.headers.get('etag')
+        for model in ['http://www.w3.org/ns/ldp#RDFSource',
+                      'http://www.w3.org/ns/ldp#Container',
+                      'http://www.w3.org/ns/ldp#BasicContainer',
+                      'http://www.w3.org/ns/ldp#DirectContainer',
+                      'http://www.w3.org/ns/ldp#IndirectContainer']:
+            r = requests.put(uri,
+                             headers={'Content-Type': 'text/turtle',
+                                      'If-Match': etag,
+                                      'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                             data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+            self.assertEqual(r.status_code, 409)
+        # LDPRS or LDPS types cannot be replaced with LDPRS
+        for model in ['http://www.w3.org/ns/ldp#RDFSource',
+                      'http://www.w3.org/ns/ldp#Container',
+                      'http://www.w3.org/ns/ldp#BasicContainer',
+                      'http://www.w3.org/ns/ldp#DirectContainer',
+                      'http://www.w3.org/ns/ldp#IndirectContainer']:
+            r = requests.post(self.rooturi,
+                              headers={'Content-Type': 'text/turtle',
+                                       'Link': '<' + model + '>; rel="type"'},
+                              data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+            self.assertEqual(r.status_code, 201)
+            uri = r.headers.get('Location')
+            self.assertTrue(uri)
+            r = requests.head(uri)
+            etag = r.headers.get('etag')
+            r = requests.put(uri,
+                             headers={'Content-Type': 'text/plain',
+                                      'If-Match': etag,
+                                      'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                             data='Not RDF')
+            self.assertEqual(r.status_code, 409)
+        # FIXME - Alsmot check incompatible LDPRS replacements
+
+    def test_fedora_3_4_2(self):
+        """Check LDPNR MUST support PUT to replace content."""
+        uri = self.post_ldpnr(data=b'original data here')
+        r = requests.head(uri)
+        etag = r.headers.get('etag')
+        new_data = b'WOW! NEW DATA'
+        r = requests.put(uri,
+                         headers={'Content-Type': 'text/plain',
+                                  'If-Match': etag,
+                                  'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                         data=new_data)
+        self.assertEqual(r.status_code, 204)
+        r = requests.get(uri)
+        self.assertEqual(r.content, new_data)
+
     def test_fedora_5_1(self):
         """Check ACLs are LDP RDF Sources."""
         r = requests.head(self.rooturi)
@@ -225,12 +307,7 @@ class TestAll(unittest.TestCase):
         self.assertEqual(len(acls), 1)
         root_acl = acls[0]
         # POST LDR-NR under root, expect to get new ACL
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/plain',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
-                          data='stuff')
-        self.assertEqual(r.status_code, 201)
-        child_uri = r.headers.get('Location')
+        child_uri = self.post_ldpnr(uri=self.rooturi, data='stuff')
         self.assertTrue(child_uri)
         r = requests.head(child_uri)
         self.assertEqual(r.status_code, 200)
@@ -279,11 +356,14 @@ if __name__ == '__main__':
                         help="Start trilpy on port (default %default)")
     parser.add_argument('--run-ldp-tests', action='store_true',
                         help="Also run the LDP testsuite")
+    parser.add_argument('--digest', action='store', default='sha1',
+                        help="Digest type to test.")
     parser.add_argument('--VeryVerbose', '-V', action='store_true',
                         help="be verbose.")
     (opts, args) = parser.parse_known_args()
     TestAll.port = opts.port
     TestAll.run_ldp_tests = opts.run_ldp_tests
+    TestAll.digest = opts.digest
     if (opts.rooturi):
         TestAll.start_trilpy = False
         TestAll.rooturi = opts.rooturi
