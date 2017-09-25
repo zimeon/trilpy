@@ -2,6 +2,7 @@
 *.egg-info
 .cache
 .eggs
+.coverage
 build/
 dist/
 report/
