@@ -109,7 +109,7 @@ class TCaseWithSetup(unittest.TestCase):
         return(ldpnr_uri)
 
 
-class TestLDPSuite(TCaseWithSetup):
+class LDPTestSuite(TCaseWithSetup):
     """TestLDPSuite class to run the Java LDP testsuite."""
 
     def test_ldp_testsuite(self):
