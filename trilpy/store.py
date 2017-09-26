@@ -80,7 +80,7 @@ class Store(object):
     def acl(self, uri, depth=0):
         """ACL URI for the ACL controlling access to uri.
 
-        Note that this effective ACL is not necessarily the same as the 
+        Note that this effective ACL is not necessarily the same as the
         individual_acl(uri) which may or may not exist. If it doesn't
         exist then we follow the containment hierarchy up looking for
         an individual ACL, or in the limit return the default acl.
@@ -155,13 +155,13 @@ class Store(object):
         return(uri in self._resources)
 
     def __len__(self):
-        """Number of._resources (excluding deleted._resources)."""
+        """Number of resources (excluding deleted resources)."""
         return(len(self._resources))
 
     def __iter__(self):
-        """Iterator over._resources (excluding deleted._resources)."""
+        """Iterator over resources (excluding deleted resources)."""
         return(iter(self._resources))
 
     def items(self):
-        """Resource items (excluding deleted._resources)."""
+        """Resource items in the store (excluding deleted resources)."""
         return(self._resources.items())
