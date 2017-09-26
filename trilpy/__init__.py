@@ -3,7 +3,9 @@
 Requires python 3.3 or greater.
 """
 import sys
-from .store import Store
+from .store import Store, KeyDeleted
+from .ldpr import LDPR
+from .ldprs import LDPRS
 from .ldpc import LDPC
 from .acl import ACLR
 from .tornado import run

@@ -12,9 +12,9 @@ class LDPC(LDPRS):
     """
 
     def __init__(self, uri=None, content=None,
-                 container_type=LDP.BasicContainer):
-        """Initialize LDPC."""
-        super(LDPC, self).__init__(uri)
+                 container_type=LDP.BasicContainer, **kwargs):
+        """Initialize LDPC as subclass of LDPRS."""
+        super(LDPC, self).__init__(uri, **kwargs)
         if (content is not None):
             self.content = content
         self.container_type = container_type

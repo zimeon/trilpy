@@ -11,13 +11,13 @@ class LDPR(object):
 
     type_label = 'LDPR'
 
-    def __init__(self, uri=None):
+    def __init__(self, uri=None, content=None, acl=None):
         """Initialize LDPR."""
         self.uri = uri
-        self.content = None
+        self.content = content
         self.contained_in = None
         self.member_of = None
-        self.acl = None
+        self.acl = acl
         self._etag = None
 
     @property

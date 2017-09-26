@@ -14,8 +14,9 @@ from urllib.parse import urljoin, urlsplit
 from .ldpnr import LDPNR
 from .ldprs import LDPRS
 from .ldpc import LDPC
-from .prefer_header import ldp_return_representation_omits
 from .namespace import LDP
+from .prefer_header import ldp_return_representation_omits
+from .store import KeyDeleted
 
 
 class HTTPError(tornado.web.HTTPError):
@@ -56,12 +57,7 @@ class LDPHandler(tornado.web.RequestHandler):
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("GET %s" % (path))
-        if (uri not in self.store.resources):
-            if (uri in self.store.deleted):
-                raise HTTPError(410)
-            logging.debug("Not found")
-            raise HTTPError(404)
-        resource = self.store.resources[uri]
+        resource = self.from_store(uri)
         if (isinstance(resource, LDPNR)):
             content_type = resource.content_type
             content = resource.content
@@ -94,11 +90,7 @@ class LDPHandler(tornado.web.RequestHandler):
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("POST %s" % (path))
-        if (uri not in self.store.resources):
-            if (uri in self.store.deleted):
-                raise HTTPError(410)
-            raise HTTPError(404)
-        resource = self.store.resources[uri]
+        resource = self.from_store(uri)
         if (not isinstance(resource, LDPC)):
             logging.debug("Rejecting POST to non-LDPC (%s)" %
                           (str(resource)))
@@ -132,17 +124,17 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(409)
         replace = False
         current_type = None
-        if (uri in self.store.resources):
+        if (uri in self.store):
             replace = True
-            current_type = self.store.resources[uri].rdf_type_uri
+            current_type = self.store[uri].rdf_type_uri
         resource = self.put_post_resource(uri, current_type)
-        if (uri in self.store.resources):
+        if (uri in self.store):
             # 5.2.4.1 LDP servers SHOULD NOT allow HTTP PUT to
             # update an LDPC's containment triples; if the
             # server receives such a request, it SHOULD respond
             # with a 409 (Conflict) status code.
             logging.warn("PUT REPLACE: %s" % (str(resource)))
-            self.check_replace_via_put(self.store.resources[uri],
+            self.check_replace_via_put(self.store[uri],
                                        resource)
             # OK, do replace
             self.store.delete(uri)
@@ -197,11 +189,7 @@ class LDPHandler(tornado.web.RequestHandler):
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("PATCH %s" % (path))
-        if (uri not in self.store.resources):
-            if (uri in self.store.deleted):
-                raise HTTPError(410)
-            raise HTTPError(404)
-        resource = self.store.resources[uri]
+        resource = self.from_store(uri)
         if (not isinstance(resource, LDPRS)):
             logging.debug("Rejecting PATCH to non-LDPRS (%s)" %
                           (str(resource)))
@@ -267,9 +255,7 @@ class LDPHandler(tornado.web.RequestHandler):
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("DELETE %s" % (path))
-        if (uri not in self.store.resources):
-            logging.debug("Not found")
-            raise HTTPError(404)
+        self.from_store(uri)  # handles 404/410 if not present
         self.store.delete(uri)
         self.confirm("Deleted")
 
@@ -287,13 +273,9 @@ class LDPHandler(tornado.web.RequestHandler):
         if (path == '*'):
             # Server-wide options per RFC7231
             pass
-        elif (uri not in self.store.resources):
-            if (uri in self.store.deleted):
-                raise HTTPError(410)
-            raise HTTPError(404)
         else:
             # Specific resource
-            resource = self.store.resources[uri]
+            resource = self.from_store(uri)
             self.add_links('type', resource.rdf_type_uris)
             self.set_link_header()
             self.set_allow(resource)
@@ -383,6 +365,17 @@ class LDPHandler(tornado.web.RequestHandler):
             uri = self.base_uri
         return(uri)
 
+    def from_store(self, uri):
+        """Get resource from store, raise 404 or 410 if not present."""
+        try:
+            return self.store[uri]
+        except KeyDeleted:
+            logging.debug("Gone")
+            raise HTTPError(410)
+        except KeyError:
+            logging.debug("Not found")
+            raise HTTPError(404)
+
     def uri_to_path(self, uri):
         """Resource local path (with /) from URI."""
         path = urlsplit(uri)[2]
@@ -457,8 +450,8 @@ class StatusHandler(tornado.web.RequestHandler):
         """HTTP GET for status report."""
         self.set_header("Content-Type", "text/plain")
         self.write("Store has\n")
-        self.write("  * %d active resources\n" % (len(self.store.resources)))
-        for (name, resource) in sorted(self.store.resources.items()):
+        self.write("  * %d active resources\n" % (len(self.store)))
+        for (name, resource) in sorted(self.store.items()):
             try:
                 t = resource.type_label
             except:

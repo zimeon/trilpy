@@ -22,9 +22,9 @@ class LDPRS(LDPR):
 
     type_label = 'LDPRS'
 
-    def __init__(self, uri=None):
-        """Initialize LDPRS."""
-        super(LDPRS, self).__init__(uri)
+    def __init__(self, uri=None, **kwargs):
+        """Initialize LDPRS as subclass of LDPR."""
+        super(LDPRS, self).__init__(uri, **kwargs)
         self.content = Graph()
 
     def parse(self, content, content_type='text/turtle', context=None):
