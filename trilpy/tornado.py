@@ -11,6 +11,7 @@ import tornado.ioloop
 import tornado.web
 from urllib.parse import urljoin, urlsplit
 
+from .digest import Digest, UnsupportedDigest, BadDigest
 from .ldpnr import LDPNR
 from .ldprs import LDPRS
 from .ldpc import LDPC
@@ -326,14 +327,21 @@ class LDPHandler(tornado.web.RequestHandler):
             return(is_rdf)
 
     def check_digest(self):
-        """Check Digest if present, raise 409 if bad, 400 if not supported."""
+        """Check request Digest if present, raise 409 if bad, 400 if not supported.
+
+        Follows https://tools.ietf.org/html/rfc3230. Will take the only the first
+        Digest header if multiple are specified. Per the Fedora API specification,
+        will report a 400 error if any digest type specified is not supported.
+        """
         digest_header = self.request.headers.get("Digest")
         if (digest_header is None):
             return()
-        digest_type = digest_header
-        # FIXME - should support some digests
-        logging.warn("Unsupported digest type %s" % (digest_type))
-        raise HTTPError(400)
+        try:
+            Digest(digest_header=digest_header).check(self.request.body)
+        except UnsupportedDigest as e:
+            raise HTTPError(409, str(e))
+        except BadDigest as e:
+            raise HTTPError(400, str(e))
 
     def conneg(self, supported_types):
         """Return content_type for response by conneg.

@@ -376,6 +376,28 @@ class TestFedora(TCaseWithSetup):
         r = requests.delete(child_uri)
         r = requests.delete(grandchild_uri)
 
+    def test_fedora_7_2(self):
+        """Test transmission fixity."""
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/plain',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                                   'Digest': 'sha=qvTGHdzF6KLavt4PO0gs2a6pQ00='},
+                          data='hello')
+        self.assertEqual(r.status_code, 201)
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/plain',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                                   'Digest': 'sha=no-match'},
+                          data='hello')
+        self.assertEqual(r.status_code, 400)
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/plain',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                                   'Digest': 'unknown=no-match'},
+                          data='hello')
+        self.assertEqual(r.status_code, 409)
+
+       
 
 class TestTrilpy(TCaseWithSetup):
     """TestTrilpy class to run miscellaneous or trilpy specific tests."""
