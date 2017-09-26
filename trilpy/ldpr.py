@@ -11,8 +11,11 @@ class LDPR(object):
 
     type_label = 'LDPR'
 
-    def __init__(self, uri=None, content=None, acl=None):
-        """Initialize LDPR."""
+    def __init__(self, uri=None, content=b'', acl=None):
+        """Initialize LDPR.
+
+        content is expected to be in bytes not unicode
+        """
         self.uri = uri
         self.content = content
         self.contained_in = None
@@ -47,10 +50,9 @@ class LDPR(object):
     def etag(self):
         """ETag value, lazily computed."""
         if (self._etag is None):
-            self._compute_etag()
+            self._etag = self._compute_etag()
         return(self._etag)
 
     def _compute_etag(self):
-        """Compute and update stored ETag value."""
-        h = hashlib.md5(self.content).hexdigest()
-        self._etag = '"' + h + '"'
+        """Compute ETag value."""
+        return('"' + hashlib.md5(self.content).hexdigest() + '"')

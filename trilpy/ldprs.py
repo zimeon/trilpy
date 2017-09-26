@@ -132,14 +132,21 @@ class LDPRS(LDPR):
             raise Exception("Unknown RDF content type")
 
     def _compute_etag(self):
-        """Compute and update stored ETag value.
+        """Compute ETag value.
 
-        Make an ETag that is fixed for the graph. This is very slow
-        and inefficient!
+        Make an ETag that is fixed for the graph.
+
+        FIXME - This is very slow and inefficient!
+
+        FIXME - This probably doesn't work because unless bnodes are serialized with a
+        consistent labeling then the hashing over them won't be consistent. Having said
+        that, the test below with a bnode seems to give consistent results... so maybe
+        the serialization is consistent if the graph isn't changed (though perhaps reading
+        the same graph's triples in a different order would mess things up?)
         """
         s = b''
         for line in sorted(self.content.serialize(format='nt').splitlines()):
             if line:
                 s += line + b'\n'
         h = hashlib.md5(s).hexdigest()
-        self._etag = 'W/"' + h + '"'
+        return('W/"' + h + '"')
