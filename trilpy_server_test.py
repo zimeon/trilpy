@@ -397,6 +397,30 @@ class TestFedora(TCaseWithSetup):
                           data='hello')
         self.assertEqual(r.status_code, 409)
 
+    def test_fedora_7_3(self):
+        """Test persistence fixity."""
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/plain',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                          data='hello')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        # Can we get digest back?
+        r = requests.head(uri, headers={'Want-Digest': 'sha'})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers.get('Digest'), 'sha=qvTGHdzF6KLavt4PO0gs2a6pQ00=')
+        r = requests.get(uri, headers={'Want-Digest': 'sha'})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers.get('Digest'), 'sha=qvTGHdzF6KLavt4PO0gs2a6pQ00=')
+        r = requests.head(uri, headers={'Want-Digest': 'sha;q=0.1, md5;q=1.0, special1;q=1.0, special2'})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers.get('Digest'), 'md5=XUFAKrxLKna5cZ2REBfFkg==')
+        # Error cases
+        r = requests.head(uri, headers={'Want-Digest': 'sha;q=2.0'})
+        self.assertEqual(r.status_code, 400)
+        r = requests.head(uri, headers={'Want-Digest': 'sha;q=0.1, md5;q=0.6, special1;q=1.0, special2'})
+        self.assertEqual(r.status_code, 409)
+
        
 
 class TestTrilpy(TCaseWithSetup):

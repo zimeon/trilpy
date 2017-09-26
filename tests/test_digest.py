@@ -2,6 +2,7 @@
 import unittest
 from trilpy.digest import Digest, UnsupportedDigest, BadDigest
 
+
 class TestAll(unittest.TestCase):
     """TestAll class to run tests."""
 
@@ -64,3 +65,8 @@ class TestAll(unittest.TestCase):
         d.digests = {'md99': 'aa'}
         self.assertRaises(UnsupportedDigest, d.check, b'hello')
 
+    def test05_digest_value(self):
+        """Test Digest response header value calculation."""
+        d = Digest()
+        d.want_digest = 'md5'
+        self.assertEqual(d.digest_value(b'hello'), 'md5=XUFAKrxLKna5cZ2REBfFkg==')

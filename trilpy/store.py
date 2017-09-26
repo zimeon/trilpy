@@ -1,4 +1,4 @@
-"""Trilpy store for._resources."""
+"""Trilpy store for resources."""
 
 import logging
 from urllib.parse import urljoin
@@ -16,7 +16,7 @@ class Store(object):
     In general this acts like a dictionary of resource items with their
     URIs as the keys. But also records deleted items (raising KeyDeleted
     instead of KeyError on attemt to access) and handles generation of
-    URIs for newly added._resources.
+    URIs for newly added resources.
     """
 
     acl_inheritance_limit = 100

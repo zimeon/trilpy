@@ -58,6 +58,7 @@ class LDPHandler(tornado.web.RequestHandler):
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("GET %s" % (path))
+        want_digest = self.check_want_digest()
         resource = self.from_store(uri)
         if (isinstance(resource, LDPNR)):
             content_type = resource.content_type
@@ -75,6 +76,8 @@ class LDPHandler(tornado.web.RequestHandler):
         self.add_links('type', resource.rdf_types)
         self.add_links('acl', [self.store.individual_acl(uri)])
         self.set_link_header()
+        if (want_digest):
+            self.set_header("Digest", want_digest.digest_value(content))
         self.set_header("Content-Type", content_type)
         self.set_header("Content-Length", len(content))
         self.set_header("Etag", resource.etag)
@@ -335,9 +338,25 @@ class LDPHandler(tornado.web.RequestHandler):
         """
         digest_header = self.request.headers.get("Digest")
         if (digest_header is None):
-            return()
+            return
         try:
             Digest(digest_header=digest_header).check(self.request.body)
+        except UnsupportedDigest as e:
+            raise HTTPError(409, str(e))
+        except BadDigest as e:
+            raise HTTPError(400, str(e))
+
+    def check_want_digest(self):
+        """Check to see whether a Want-Digest header is provided, check support.
+
+        Will return empty(False) if there is not Want-Digest header, raise HTTPError
+        if bad, else return Digest object with header.
+        """
+        want_digest_header = self.request.headers.get("Want-Digest")
+        if (want_digest_header is None):
+            return None
+        try:
+            return Digest(want_digest_header=want_digest_header)
         except UnsupportedDigest as e:
             raise HTTPError(409, str(e))
         except BadDigest as e:

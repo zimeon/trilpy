@@ -31,7 +31,7 @@ class Digest(object):
     # FIXME - https://github.com/fcrepo/fcrepo-specification/issues/235
     supported_digests = {'md5': hashlib.md5, 'sha': hashlib.sha1,
                          'sha1': hashlib.sha1,
-                         'sha-256': hashlib.sha256, 'sha-512': hashlib.sha512} 
+                         'sha-256': hashlib.sha256, 'sha-512': hashlib.sha512}
 
     def __init__(self, digest_header=None, want_digest_header=None):
         """Initialize Digest object with optional HTTP header parsing."""
@@ -62,7 +62,7 @@ class Digest(object):
         """Parse HTTP Want-Digest header.
 
         Records the preferred supported digest type in self.want_digest, will
-        raise an BadDigest exception if no supported digest is specified 
+        raise an BadDigest exception if no supported digest is specified
         with non-zero q value.
         """
         self.want_digest = None
@@ -82,7 +82,7 @@ class Digest(object):
                 digests[digest_type] = q
                 if (q > highest_q):
                     highest_q = q
-            else: 
+            else:
                 raise BadDigest("Bad Want-Digest specifiation " + digest_spec)
         # Have read all, get set with highest q, see if one is supported
         if (highest_q == 0.0):
@@ -100,6 +100,10 @@ class Digest(object):
             cdigest = self._calculate_digest(digest_type, content)
             if (cdigest != digest):
                 raise BadDigest("Digest type %s doesn't match: got %s, expected %s" % (digest_type, cdigest, digest))
+
+    def digest_value(self, content):
+        """Create digest value for response header with the content supplied, accordintg parsed Want-Digest."""
+        return(self.want_digest + '=' + self._calculate_digest(self.want_digest, content))
 
     def _calculate_digest(self, digest_type, content):
         """Calculate digest string for given digest_type over byte content."""
