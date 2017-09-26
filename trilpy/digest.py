@@ -26,8 +26,11 @@ class Digest(object):
 
     # Digest names are case insensitive, use lowercase as canonical
     # Values in hash are the hashlib functions to generate hash
+    #
+    # FIXME - F4 uses 'sha1' but IANA has 'sha', include both here. See
+    # FIXME - https://github.com/fcrepo/fcrepo-specification/issues/235
     supported_digests = {'md5': hashlib.md5, 'sha': hashlib.sha1,
-                         'sha1': hashlib.sha1,  # FIXME - is this legal? F4 uses 'sha1' but IANA has 'sha'!
+                         'sha1': hashlib.sha1,
                          'sha-256': hashlib.sha256, 'sha-512': hashlib.sha512} 
 
     def __init__(self, digest_header=None, want_digest_header=None):
