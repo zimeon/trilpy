@@ -381,12 +381,6 @@ class TestFedora(TCaseWithSetup):
         r = requests.post(self.rooturi,
                           headers={'Content-Type': 'text/plain',
                                    'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
-                                   'Digest': 'sha=qvTGHdzF6KLavt4PO0gs2a6pQ00='},
-                          data='hello')
-        self.assertEqual(r.status_code, 201)
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/plain',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
                                    'Digest': 'sha=no-match'},
                           data='hello')
         self.assertEqual(r.status_code, 400)
@@ -396,6 +390,18 @@ class TestFedora(TCaseWithSetup):
                                    'Digest': 'unknown=no-match'},
                           data='hello')
         self.assertEqual(r.status_code, 409)
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/plain',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                                   'Digest': 'sha=qvTGHdzF6KLavt4PO0gs2a6pQ00='},
+                          data='hello')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        r = requests.put(uri,
+                         headers={'Content-Type': 'text/plain',
+                                  'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                                  'Digest': 'md5=afqrYmg1ApVVDefVh7wyPQ=='},
+                         data='goodbye')
 
     def test_fedora_7_3(self):
         """Test persistence fixity."""
