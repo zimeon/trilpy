@@ -23,10 +23,14 @@ class LDPRS(LDPR):
 
     type_label = 'LDPRS'
 
-    def __init__(self, uri=None, **kwargs):
-        """Initialize LDPRS as subclass of LDPR."""
+    def __init__(self, uri=None, content=None, **kwargs):
+        """Initialize LDPRS as subclass of LDPR.
+
+        Initial content may optionally be specified via an
+        rdflib.Graph object.
+        """
         super(LDPRS, self).__init__(uri, **kwargs)
-        self.content = Graph()
+        self.content = Graph() if (content is None) else content
 
     def parse(self, content, content_type='text/turtle', context=None):
         """Parse RDF and add to this LDPRS.
@@ -83,12 +87,17 @@ class LDPRS(LDPR):
                 logging.debug("type: %s" % (str(o)))
         return(types)
 
-    def get_containment_triples(self):
-        """Set of containment triples in content."""
+    def extract_containment_triples(self):
+        """Remove and return set of containment triples from content.
+
+        We store containment triples as server managed so we do
+        not want these duplicated in the content.
+        """
         ctriples = Graph()
         for (s, p, o) in self.content:
             if (p == LDP.contains):
                 ctriples.add((s, p, o))
+                self.content.remove((s, p, o))
         return(ctriples)
 
     def serialize(self, content_type='text/turtle', omits=None):

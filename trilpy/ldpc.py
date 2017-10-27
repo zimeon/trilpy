@@ -11,12 +11,10 @@ class LDPC(LDPRS):
     See <https://www.w3.org/TR/ldp/#ldpc>.
     """
 
-    def __init__(self, uri=None, content=None,
+    def __init__(self, uri=None,
                  container_type=LDP.BasicContainer, **kwargs):
         """Initialize LDPC as subclass of LDPRS."""
         super(LDPC, self).__init__(uri, **kwargs)
-        if (content is not None):
-            self.content = content
         self.container_type = container_type
         self.members = set()
         self.membership_predicate = URIRef('http://www.w3.org/ns/ldp#member')

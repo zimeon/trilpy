@@ -1,6 +1,6 @@
 """LDPRS tests."""
 import unittest
-from rdflib import Graph, URIRef
+from rdflib import Graph, URIRef, Literal
 from rdflib.namespace import RDF
 from trilpy.ldprs import LDPRS
 from trilpy.namespace import LDP
@@ -49,6 +49,44 @@ class TestAll(unittest.TestCase):
         self.assertRaises(Exception, r.get_container_type, context="http://ex.org/aa")
         self.assertEqual(r.get_container_type(context="http://ex.org/NOT_aa"), None)
 
+    def test04_extract_containement_triples(self):
+        """Test extraction of containment triples."""
+        uri = URIRef('http://ex.org/klm')
+        c1 = (uri, LDP.contains, URIRef('http://ex.org/c1'))
+        c2 = (uri, LDP.contains, URIRef('http://ex.org/c2'))
+        g = Graph()
+        g.add(c1)
+        g.add(c2)
+        g.add((uri, RDF.type, URIRef('http://ex.org/some_type')))
+        r = LDPRS(content=g)
+        cg = r.extract_containment_triples()
+        self.assertEqual(len(r.content), 1)
+        self.assertEqual(len(cg), 2)
+        self.assertIn(c1, cg)
+        self.assertIn(c2, cg)
+
+    def test05_serialize(self):
+        """Test some simple serialization cases."""
+        uri = URIRef('http://ex.org/ldprs')
+        g = Graph()
+        g.add((uri, RDF.type, URIRef('http://ex.org/some_type')))
+        g.add((URIRef('http://ex.org/a'), URIRef('http://ex.org/b'), Literal('LITERAL')))
+        r = LDPRS(uri=uri, content=g)
+        s = r.serialize()
+        self.assertIn('@prefix ldp: <http://www.w3.org/ns/ldp#> .', s)
+        self.assertIn('ldprs', s)  # might prefix or not
+        self.assertIn('some_type', s)  # might prefix or not
+        self.assertIn('ldp:RDFSource', s)
+        self.assertIn('ldp:Resource', s)
+        self.assertIn('"LITERAL"', s)
+        #
+        s = r.serialize(omits=['content'])
+        self.assertIn('ldprs', s)  # might prefix or not
+        self.assertNotIn('some_type', s)  # might prefix or not
+        self.assertIn('ldp:RDFSource', s)
+        self.assertIn('ldp:Resource', s)
+        self.assertNotIn('"LITERAL"', s)
+
     def test07_add_server_managed_triples(self):
         """Test addition of server manages triples to graph."""
         # CURRENTLY SAME AS JUST ADDING TYPE TRIPLES
@@ -75,8 +113,8 @@ class TestAll(unittest.TestCase):
         r = LDPRS('http://ex.org/cde')
         g = r.server_managed_triples()
         self.assertEqual(len(g), 2)
-        self.assertTrue((URIRef('http://ex.org/cde'), RDF.type, LDP.RDFSource) in g)
-        self.assertTrue((URIRef('http://ex.org/cde'), RDF.type, LDP.Resource) in g)
+        self.assertIn((URIRef('http://ex.org/cde'), RDF.type, LDP.RDFSource), g)
+        self.assertIn((URIRef('http://ex.org/cde'), RDF.type, LDP.Resource), g)
 
     def test10_compute_etag(self):
         """Test computation of etag."""

@@ -171,8 +171,8 @@ class LDPHandler(tornado.web.RequestHandler):
             # any container triple present in the old resource, but
             # changes are not allowed.
             old_ctriples = old_resource.server_managed_triples()
-            new_ctriples = new_resource.get_containment_triples()
-            if (len(new_ctriples) > 0):
+            new_ctriples = new_resource.extract_containment_triples()
+            if ((new_ctriples + old_ctriples) != old_ctriples):
                 logging.debug("Rejecting attempt to change containment triples.")
                 raise HTTPError(409)
         elif (isinstance(old_resource, LDPRS) and
