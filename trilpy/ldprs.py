@@ -2,8 +2,9 @@
 # import context_cache.for_rdflib_jsonld
 import hashlib
 import logging
-from rdflib import Graph, URIRef, Literal
+from rdflib import Graph, URIRef, Literal, BNode
 from rdflib.namespace import RDF, NamespaceManager
+import re
 
 from .ldpr import LDPR
 from .namespace import LDP
@@ -45,16 +46,17 @@ class LDPRS(LDPR):
     def get_container_type(self, context, default=None):
         """Find LDP container type from data supplied.
 
-        Returns the default type or None if there is no matching
-        type information. Will throw and exception if there are
-        conflicting container types specified.
+        Returns the default type provided (or None if not
+        specified) if there is no matching type information.
+        Will throw and exception if there are conflicting
+        container types specified.
         """
         types = self._get_types(context)
         count = 0
         last = None
         for ctype in (LDP.BasicContainer,
                       LDP.DirectContainer,
-                      LDP.IndirectContainerin):
+                      LDP.IndirectContainer):
             if (ctype in types):
                 last = ctype
                 count += 1
@@ -65,7 +67,11 @@ class LDPRS(LDPR):
         return(default)
 
     def _get_types(self, context):
-        """Return rdf:type properties of context in content.
+        """Set of rdf:type properties of context resource.
+
+        Search through data in the content of this resource and
+        pull out all rdf:type statements associated with the
+        context resource.
 
         FIXME - presumably can make this more efficient!
         """
@@ -78,7 +84,7 @@ class LDPRS(LDPR):
         return(types)
 
     def get_containment_triples(self):
-        """Return set of containment triples in content."""
+        """Set of containment triples in content."""
         ctriples = Graph()
         for (s, p, o) in self.content:
             if (p == LDP.contains):
@@ -136,17 +142,21 @@ class LDPRS(LDPR):
 
         Make an ETag that is fixed for the graph.
 
-        FIXME - This is very slow and inefficient!
-
         FIXME - This probably doesn't work because unless bnodes are serialized with a
         consistent labeling then the hashing over them won't be consistent. Having said
         that, the test below with a bnode seems to give consistent results... so maybe
         the serialization is consistent if the graph isn't changed (though perhaps reading
         the same graph's triples in a different order would mess things up?)
         """
-        s = b''
-        for line in sorted(self.content.serialize(format='nt').splitlines()):
-            if line:
-                s += line + b'\n'
-        h = hashlib.md5(s).hexdigest()
+        lines = []
+        for (s, p, o) in self.content:
+            # Change any bnodes to a fixed sting. This is wrong
+            # because it means non-isomorphic graphs will end up
+            # with the same etag. However, in practice it is very
+            # likely that the ETag will change with changes in graph.
+            lines.append(("_:BNODE" if isinstance(s, BNode) else s.n3()) +
+                         ' ' + p.n3() + ' ' +
+                         ("_:BNODE" if isinstance(o, BNode) else o.n3()))
+        s = '\n'.join(sorted(lines))
+        h = hashlib.md5(s.encode('utf-8')).hexdigest()
         return('W/"' + h + '"')
