@@ -51,12 +51,12 @@ class LDPC(LDPRS):
                        self.membership_predicate,
                        URIRef(member)))
 
-    def add_containment_triples(self, graph):
-        """Add containment triples to graph."""
+    def containment_triples(self):
+        """Generator for containment triples (rdflib style tuples)."""
         for contained in self.contains:
-            graph.add((URIRef(self.uri),
-                       self.containment_predicate,
-                       URIRef(contained)))
+            yield((URIRef(self.uri),
+                   self.containment_predicate,
+                   URIRef(contained)))
 
     @property
     def rdf_types(self):
