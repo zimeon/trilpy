@@ -30,7 +30,17 @@ class Store(object):
         self.deleted = set()
 
     def add(self, resource, uri=None, context=None, slug=None):
-        """Add resource, optionally with specific uri."""
+        """Add resource, optionally with specific uri.
+
+        If uri is not None then the new resource should be added with
+        that URI, possibly relaive to the repository base_uri.
+
+        If context is not None then it is the URI of the container to which
+        this resource is being added.
+
+        If slug is not None then it is a hint at the client's preferred
+        naming of the new resource (ignored if uri is set).
+        """
         if (uri is None):
             uri = self._get_uri(context, slug)
         else:
@@ -48,7 +58,7 @@ class Store(object):
             # Add containment and contains relationships
             resource.contained_in = context
             container.add_contained(uri)
-            # if (container.container_type == LDP.DirectContainer):
+            #if (container.container_type == LDP.DirectContainer):
             #    resource.member_of = context
             #    container.add_member(uri)
         return(uri)
@@ -62,18 +72,18 @@ class Store(object):
         if (uri in self._resources):
             resource = self._resources[uri]
             if (resource.contained_in is not None):
+                context = resource.contained_in
                 try:
                     # Delete containment and contains relationships
-                    context = resource.contained_in
                     resource.contained_in = None
                     container = self._resources[context]
                     container.del_contained(uri)
-                    if (container.container_type == LDP.DirectContainer):
-                        resource.member_of = None
-                        container.del_member(uri)
-                except:
+                except KeyError:
                     logging.warn("OOPS - failed to remove containment triple of %s from %s" %
-                                 (uri, resource.contained_in))
+                                 (uri, context))
+                #if (container.container_type == LDP.DirectContainer):
+                #        resource.member_of = None
+                #        container.del_member(uri)
             del self._resources[uri]
             self.deleted.add(uri)
 

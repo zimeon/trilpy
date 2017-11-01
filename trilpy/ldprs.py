@@ -195,8 +195,7 @@ class LDPRS(LDPR):
 
     def containment_triples(self):
         """Generator for containment triples (empty for plain LDPRS)."""
-        return
-        yield
+        return([])
 
     @property
     def rdf_types(self):

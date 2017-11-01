@@ -17,9 +17,9 @@ class LDPC(LDPRS):
         super(LDPC, self).__init__(uri, **kwargs)
         self.container_type = container_type
         self.members = set()
-        self.membership_predicate = URIRef('http://www.w3.org/ns/ldp#member')
+        self.membership_predicate = LDP.member
         self.contains = set()
-        self.containment_predicate = URIRef('http://www.w3.org/ns/ldp#contains')
+        self.containment_predicate = LDP.contains
         self.type_label = 'LDPC'
 
     def add_server_managed_triples(self, graph, omits=None):
@@ -61,7 +61,7 @@ class LDPC(LDPRS):
     @property
     def rdf_types(self):
         """List of RDF types for this container."""
-        return([self.container_type, LDP.Resource])
+        return([self.container_type, LDP.RDFSource,LDP.Resource])
 
     def add_contained(self, uri):
         """Add uri as contained resource."""

@@ -21,7 +21,6 @@ class TCaseWithSetup(unittest.TestCase):
 
     port = 9999
     rooturi = 'http://localhost:' + str(port) + '/'
-    LDPC_URI = rooturi
     start_trilpy = True
     new_for_each_test = False
     run_ldp_tests = False
@@ -181,7 +180,7 @@ class TestFedora(TCaseWithSetup):
         https://fcrepo.github.io/fcrepo-specification/#ldpnr-ixn-model
         """
         # POST Turtle object as LDR-NR
-        r = requests.post(self.LDPC_URI,
+        r = requests.post(self.rooturi,
                           headers={'Content-Type': 'text/turtle',
                                    'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
                           data='<http://ex.org/a> <http://ex.org/b> "123".')
@@ -214,7 +213,7 @@ class TestFedora(TCaseWithSetup):
         for container_type in ['http://www.w3.org/ns/ldp#BasicContainer',
                                'http://www.w3.org/ns/ldp#DirectContainer',
                                'http://www.w3.org/ns/ldp#IndirectContainer']:
-            r = requests.post(self.LDPC_URI,
+            r = requests.post(self.rooturi,
                               headers={'Content-Type': 'text/turtle',
                                        'Link': '<' + container_type + '>; rel="type"'},
                               data='<http://ex.org/a> <http://ex.org/b> "xyz".')
