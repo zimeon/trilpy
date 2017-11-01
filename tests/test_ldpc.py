@@ -15,17 +15,21 @@ class TestAll(unittest.TestCase):
         self.assertEqual(len(r.content), 0)
 
     def test02_add_server_managed_triples(self):
+        """Test addition of server managed triples to RDF."""
         pass
 
     def test03_add_member_triples(self):
-        pass 
+        """Test addition of member triples to RDF."""
+        pass
 
     def test04_containment_triples(self):
+        """Test generation of containment triples."""
         r = LDPC()
         ct = list(r.containment_triples())
         self.assertEqual(len(ct), 0)
 
     def test05_rdf_types(self):
+        """Test RDF types."""
         r = LDPC()
         self.assertIn(LDP.Resource, r.rdf_types)
         self.assertIn(LDP.RDFSource, r.rdf_types)
@@ -50,4 +54,5 @@ class TestAll(unittest.TestCase):
         self.assertIn((URIRef('uri:self'), LDP.contains, URIRef('uri:3')), ct)
 
     def test20_add_del_member(self):
+        """Test addition and deletion of member triples."""
         pass

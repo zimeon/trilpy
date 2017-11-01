@@ -58,7 +58,7 @@ class Store(object):
             # Add containment and contains relationships
             resource.contained_in = context
             container.add_contained(uri)
-            #if (container.container_type == LDP.DirectContainer):
+            # if (container.container_type == LDP.DirectContainer):
             #    resource.member_of = context
             #    container.add_member(uri)
         return(uri)
@@ -82,7 +82,7 @@ class Store(object):
                 except KeyError:
                     logging.warn("OOPS - failed to remove containment of %s from %s" %
                                  (uri, context))
-                #if (container.container_type == LDP.DirectContainer):
+                # if (container.container_type == LDP.DirectContainer):
                 #        resource.member_of = None
                 #        container.del_member(uri)
             del self._resources[uri]

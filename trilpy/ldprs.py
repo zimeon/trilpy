@@ -38,7 +38,7 @@ class LDPRS(LDPR):
     rdf_patch_types - Media types for HTTP PATCH method
     """
 
-    type_label = 'LDPRS'  
+    type_label = 'LDPRS'
 
     media_to_rdflib_type = OrderedDict([
         ('text/turtle', 'turtle'),   # default - must be first

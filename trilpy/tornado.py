@@ -71,7 +71,7 @@ class LDPHandler(tornado.web.RequestHandler):
             # Is there a Prefer return=representation header?
             omits = ldp_return_representation_omits(
                 self.request.headers.get_list('Prefer'))
-            #logging.debug("Prefer: " + str(self.request.headers.get_list('Prefer')))
+            # logging.debug("Prefer: " + str(self.request.headers.get_list('Prefer')))
             logging.debug("Omits: " + str(omits))
             content = resource.serialize(content_type, omits)
             logging.debug("RDF content:\n" + content)
@@ -441,7 +441,7 @@ class LDPHandler(tornado.web.RequestHandler):
                 methods.append('PATCH')
                 self.set_header('Accept-Patch', ', '.join(self.rdf_patch_types))
             if (isinstance(resource, LDPC)):
-                 # 5.2.3.13 LDP servers that support POST must include an
+                # 5.2.3.13 LDP servers that support POST must include an
                 # Accept-Post response header on HTTP OPTIONS responses,
                 # listing POST request media type(s) supported by the
                 # server.

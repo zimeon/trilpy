@@ -61,7 +61,7 @@ class LDPC(LDPRS):
     @property
     def rdf_types(self):
         """List of RDF types for this container."""
-        return([self.container_type, LDP.RDFSource,LDP.Resource])
+        return([self.container_type, LDP.RDFSource, LDP.Resource])
 
     def add_contained(self, uri):
         """Add uri as contained resource."""
