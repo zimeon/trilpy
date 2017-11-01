@@ -64,11 +64,12 @@ class Store(object):
         return(uri)
 
     def delete(self, uri):
-        """Delete resource and record deletion.
+        """Delete resource and record deletion. Return context of deleted resource.
 
         If the resource being deleted is recorded as being contained
         in a container then delete the entry from the container.
         """
+        context = None
         if (uri in self._resources):
             resource = self._resources[uri]
             if (resource.contained_in is not None):
@@ -79,13 +80,14 @@ class Store(object):
                     container = self._resources[context]
                     container.del_contained(uri)
                 except KeyError:
-                    logging.warn("OOPS - failed to remove containment triple of %s from %s" %
+                    logging.warn("OOPS - failed to remove containment of %s from %s" %
                                  (uri, context))
                 #if (container.container_type == LDP.DirectContainer):
                 #        resource.member_of = None
                 #        container.del_member(uri)
             del self._resources[uri]
             self.deleted.add(uri)
+        return context
 
     def acl(self, uri, depth=0):
         """ACL URI for the ACL controlling access to uri.

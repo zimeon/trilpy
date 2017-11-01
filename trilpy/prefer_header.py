@@ -84,5 +84,5 @@ def ldp_return_representation_omits(prefer_headers):
             for section in includes:
                 omits.remove(section)
     except StopIteration as e:
-        logging.info("Ignored: " + str(e))
+        logging.debug("Ignored: " + str(e))
     return(omits)

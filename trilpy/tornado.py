@@ -71,7 +71,7 @@ class LDPHandler(tornado.web.RequestHandler):
             # Is there a Prefer return=representation header?
             omits = ldp_return_representation_omits(
                 self.request.headers.get_list('Prefer'))
-            logging.debug("Prefer: " + str(self.request.headers.get_list('Prefer')))
+            #logging.debug("Prefer: " + str(self.request.headers.get_list('Prefer')))
             logging.debug("Omits: " + str(omits))
             content = resource.serialize(content_type, omits)
             logging.debug("RDF content:\n" + content)
@@ -142,12 +142,14 @@ class LDPHandler(tornado.web.RequestHandler):
             # update an LDPC's containment triples; if the
             # server receives such a request, it SHOULD respond
             # with a 409 (Conflict) status code.
-            logging.warn("PUT REPLACE: %s" % (str(resource)))
-            self.check_replace_via_put(self.store[uri],
-                                       resource)
-            # OK, do replace
-            self.store.delete(uri)
-        self.store.add(resource, uri)
+            logging.debug("PUT REPLACE: %s" % (str(resource)))
+            current_resource = self.store[uri]
+            self.check_replace_via_put(current_resource, resource)
+            # OK, do replace of content only
+            current_resource.content = resource.content
+        else:
+            # New resource
+            self.store.add(resource, uri)
         self.set_status(204 if replace else 201)
         logging.debug("PUT %s to %s OK" % (str(resource), uri))
 
@@ -184,7 +186,7 @@ class LDPHandler(tornado.web.RequestHandler):
               not isinstance(old_resource, LDPC) and
               isinstance(new_resource, LDPRS) and
               not isinstance(new_resource, LDPC)):
-            # RDF Source checks
+            # FIXME - RDF Source checks
             pass
         else:
             logging.debug("Rejecting incompatible replace of %s with %s" %
