@@ -59,3 +59,8 @@ Since all interactions with stored data happen through `trilpy.store`, hooks to 
 Done. Implements `Digest` for transmission fixity, `Want-Digest` for persistence fixity. Supports `md5`, `sha` (and alias `sha1` used by Fedora4, see [fcrepo#235](https://github.com/fcrepo/fcrepo-specification/issues/235).
 
 Current implementation does this for all LDPR, not just LDPNR.
+
+## Related work
+
+  * https://github.com/fcrepo4-labs/Fedora-API-Test-Suite - Test suite that exercises the requirements in the Fedora API Specification indicating the degree of a server’s compliance with the specification.
+  * https://github.com/rotated8/fedora-spec-testing - Test suite for Fedora5 implementation. Assumes a number of implementation specific behaviors (like assumption of `Content-Type` for POST so it is not specified in request, removal of assumed `fcr:tombstone` resources).
