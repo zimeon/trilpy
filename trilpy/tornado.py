@@ -13,7 +13,7 @@ from urllib.parse import urljoin, urlsplit
 
 from .digest import Digest, UnsupportedDigest, BadDigest
 from .ldpnr import LDPNR
-from .ldprs import LDPRS
+from .ldprs import LDPRS, PatchFailed, PatchIllegal
 from .ldpc import LDPC
 from .namespace import LDP
 from .prefer_header import ldp_return_representation_omits
@@ -36,7 +36,8 @@ class LDPHandler(tornado.web.RequestHandler):
     support_acl = True
     require_if_match_etag = True
     base_uri = 'BASE'
-    rdf_types = ['text/turtle', 'application/ld+json']
+    rdf_media_types = LDPRS.rdf_media_types
+    rdf_patch_types = LDPRS.rdf_patch_types
     ldp_container_types = [str(LDP.IndirectContainer),
                            str(LDP.DirectContainer),
                            str(LDP.BasicContainer),
@@ -63,13 +64,17 @@ class LDPHandler(tornado.web.RequestHandler):
         if (isinstance(resource, LDPNR)):
             content_type = resource.content_type
             content = resource.content
+            logging.debug("Non-RDF content, size=%dbytes" % (len(content)))
         else:
             content_type = conneg_on_accept(
-                self.rdf_types, self.request.headers.get("Accept"))
+                self.rdf_media_types, self.request.headers.get("Accept"))
             # Is there a Prefer return=representation header?
             omits = ldp_return_representation_omits(
                 self.request.headers.get_list('Prefer'))
+            #logging.debug("Prefer: " + str(self.request.headers.get_list('Prefer')))
+            logging.debug("Omits: " + str(omits))
             content = resource.serialize(content_type, omits)
+            logging.debug("RDF content:\n" + content)
             if (len(omits) > 0):
                 self.set_header("Preference-Applied",
                                 "return=representation")
@@ -137,12 +142,14 @@ class LDPHandler(tornado.web.RequestHandler):
             # update an LDPC's containment triples; if the
             # server receives such a request, it SHOULD respond
             # with a 409 (Conflict) status code.
-            logging.warn("PUT REPLACE: %s" % (str(resource)))
-            self.check_replace_via_put(self.store[uri],
-                                       resource)
-            # OK, do replace
-            self.store.delete(uri)
-        self.store.add(resource, uri)
+            logging.debug("PUT REPLACE: %s" % (str(resource)))
+            current_resource = self.store[uri]
+            self.check_replace_via_put(current_resource, resource)
+            # OK, do replace of content only
+            current_resource.content = resource.content
+        else:
+            # New resource
+            self.store.add(resource, uri)
         self.set_status(204 if replace else 201)
         logging.debug("PUT %s to %s OK" % (str(resource), uri))
 
@@ -172,35 +179,19 @@ class LDPHandler(tornado.web.RequestHandler):
             # changes are not allowed.
             old_ctriples = old_resource.server_managed_triples()
             new_ctriples = new_resource.extract_containment_triples()
-            if ((new_ctriples + old_ctriples) != old_ctriples):
+            if (len(new_ctriples + old_ctriples) != len(old_ctriples)):
                 logging.debug("Rejecting attempt to change containment triples.")
                 raise HTTPError(409)
         elif (isinstance(old_resource, LDPRS) and
               not isinstance(old_resource, LDPC) and
               isinstance(new_resource, LDPRS) and
               not isinstance(new_resource, LDPC)):
-            # RDF Source checks
+            # FIXME - RDF Source checks
             pass
         else:
             logging.debug("Rejecting incompatible replace of %s with %s" %
                           (str(old_resource), str(new_resource)))
             raise HTTPError(409)
-
-    def patch(self):
-        """HTTP PATCH."""
-        if (not self.support_patch):
-            raise HTTPError(405)
-        path = self.request.path
-        uri = self.path_to_uri(path)
-        logging.debug("PATCH %s" % (path))
-        resource = self.from_store(uri)
-        if (not isinstance(resource, LDPRS)):
-            logging.debug("Rejecting PATCH to non-LDPRS (%s)" %
-                          (str(resource)))
-            raise HTTPError(405)
-        self.check_digest()
-        # ... FIXME - NEED GUTS
-        raise HTTPError(499)
 
     def put_post_resource(self, uri=None, current_type=None):
         """Parse request data for PUT or POST.
@@ -210,7 +201,7 @@ class LDPHandler(tornado.web.RequestHandler):
         """
         model = self.request_ldp_type()
         content_type = self.request_content_type()
-        content_type_is_rdf = content_type in self.rdf_types
+        content_type_is_rdf = content_type in self.rdf_media_types
         logging.warn("got-content-type " + content_type)
         if (current_type is not None):  # Replacements
             if (model is None):
@@ -247,6 +238,34 @@ class LDPHandler(tornado.web.RequestHandler):
             return(LDPNR(uri=uri,
                          content=self.request.body,
                          content_type=content_type))
+
+    def patch(self):
+        """HTTP PATCH."""
+        if (not self.support_patch):
+            raise HTTPError(405)
+        path = self.request.path
+        uri = self.path_to_uri(path)
+        logging.debug("PATCH %s" % (path))
+        resource = self.from_store(uri)
+        if (not isinstance(resource, LDPRS)):
+            logging.debug("Rejecting PATCH to non-LDPRS (%s)" %
+                          (str(resource)))
+            raise HTTPError(405)
+        self.check_digest()
+        content_type = self.request_content_type()
+        if (content_type not in self.rdf_patch_types):
+            logging.warn("Unsupported RDF PATCH type: %s" % (content_type))
+            raise HTTPError(415)
+        try:
+            resource.patch(patch=self.request.body.decode('utf-8'),
+                           content_type=content_type)
+        except PatchIllegal as e:
+            logging.warn("Patch illegal: " + str(e))
+            raise HTTPError(409, str(e))
+        except PatchFailed as e:
+            logging.warn("Patch failed: " + str(e))
+            raise HTTPError(400, str(e))
+        logging.debug("PATCH %s OK" % (uri))
 
     def delete(self):
         """HTTP DELETE.
@@ -414,19 +433,20 @@ class LDPHandler(tornado.web.RequestHandler):
         if (self.support_delete):
             methods.append('DELETE')
         if (resource is not None):
-            if (isinstance(resource, LDPC)):
+            if (isinstance(resource, LDPRS)):
                 # 4.2.7.1 LDP servers that support PATCH must include an
                 # Accept-Patch HTTP response header [RFC5789] on HTTP
                 # OPTIONS requests, listing patch document media type(s)
                 # supported by the server.
                 methods.append('PATCH')
-                self.set_header('Accept-Patch', ', '.join(self.rdf_types))
-                # 5.2.3.13 LDP servers that support POST must include an
+                self.set_header('Accept-Patch', ', '.join(self.rdf_patch_types))
+            if (isinstance(resource, LDPC)):
+                 # 5.2.3.13 LDP servers that support POST must include an
                 # Accept-Post response header on HTTP OPTIONS responses,
                 # listing POST request media type(s) supported by the
                 # server.
                 methods.append('POST')
-                self.set_header('Accept-Post', ', '.join(self.rdf_types))
+                self.set_header('Accept-Post', ', '.join(self.rdf_media_types))
         self.set_header('Allow', ', '.join(methods))
 
     def add_links(self, rel, uris):

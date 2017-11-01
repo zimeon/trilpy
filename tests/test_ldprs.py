@@ -2,7 +2,7 @@
 import unittest
 from rdflib import Graph, URIRef, Literal
 from rdflib.namespace import RDF
-from trilpy.ldprs import LDPRS
+from trilpy.ldprs import LDPRS, PatchFailed
 from trilpy.namespace import LDP
 
 
@@ -34,7 +34,32 @@ class TestAll(unittest.TestCase):
                 content_type='application/ld+json')
         self.assertEqual(len(r.content), 1)
 
-    def test03_get_container_type(self):
+    def test03_patch(self):
+        """Test PATCH update."""
+        r = LDPRS()
+        r.parse('''
+            @prefix x: <http://example.org/> .
+            x:simeon x:has x:pizza .
+            ''')
+        sparql_update = '''
+            PREFIX x: <http://example.org/>
+            DELETE { ?s x:has ?o . }
+            INSERT { ?s x:ate ?o .
+                     ?o x:was_eaten_by ?s . }
+            WHERE { ?s x:has ?o . }
+            '''
+        self.assertEqual(len(r.content), 1)
+        r.patch(sparql_update, 'application/sparql-update')
+        self.assertEqual(len(r.content), 2)
+        self.assertEqual(len(list(r.content.triples((None, URIRef('http://example.org/has'), None)))), 0)
+        self.assertEqual(len(list(r.content.triples((None, URIRef('http://example.org/ate'), None)))), 1)
+        self.assertEqual(len(list(r.content.triples((None, URIRef('http://example.org/was_eaten_by'), None)))), 1)
+        # bad type
+        self.assertRaises(PatchFailed, r.patch, sparql_update, 'bad/type')
+        # bad update command
+        self.assertRaises(PatchFailed, r.patch, 'update syntax error', 'application/sparql-update')
+
+    def test04_get_container_type(self):
         """Test extraction of container type."""
         r = LDPRS()
         self.assertEqual(r.get_container_type(context="http://ex.org/aa"), None)
@@ -49,7 +74,7 @@ class TestAll(unittest.TestCase):
         self.assertRaises(Exception, r.get_container_type, context="http://ex.org/aa")
         self.assertEqual(r.get_container_type(context="http://ex.org/NOT_aa"), None)
 
-    def test04_extract_containement_triples(self):
+    def test05_extract_containement_triples(self):
         """Test extraction of containment triples."""
         uri = URIRef('http://ex.org/klm')
         c1 = (uri, LDP.contains, URIRef('http://ex.org/c1'))
@@ -65,7 +90,7 @@ class TestAll(unittest.TestCase):
         self.assertIn(c1, cg)
         self.assertIn(c2, cg)
 
-    def test05_serialize(self):
+    def test06_serialize(self):
         """Test some simple serialization cases."""
         uri = URIRef('http://ex.org/ldprs')
         g = Graph()
@@ -102,11 +127,11 @@ class TestAll(unittest.TestCase):
         r.add_type_triples(g)
         self.assertEqual(len(g), 2)
 
-    def test08_mime_to_rdflib_type(self):
-        """Test mime lookup and conversion."""
+    def test08_media_to_rdflib_type(self):
+        """Test media_ lookup and conversion."""
         r = LDPRS()
-        self.assertEqual(r._mime_to_rdflib_type('text/turtle'), 'turtle')
-        self.assertRaises(Exception, r._mime_to_rdflib_type, 'elephants')
+        self.assertEqual(r._media_to_rdflib_type('text/turtle'), 'turtle')
+        self.assertRaises(Exception, r._media_to_rdflib_type, 'elephants')
 
     def test09_server_managed_triples(self):
         """Test set of server managed triples."""
@@ -116,7 +141,12 @@ class TestAll(unittest.TestCase):
         self.assertIn((URIRef('http://ex.org/cde'), RDF.type, LDP.RDFSource), g)
         self.assertIn((URIRef('http://ex.org/cde'), RDF.type, LDP.Resource), g)
 
-    def test10_compute_etag(self):
+    def test10_containment_triples(self):
+        """Test null iterator for containment triples."""
+        ct = list(LDPRS().containment_triples())
+        self.assertEqual(ct, [])
+
+    def test11_compute_etag(self):
         """Test computation of etag."""
         r = LDPRS()
         self.assertEqual(r._compute_etag(), 'W/"d41d8cd98f00b204e9800998ecf8427e"')

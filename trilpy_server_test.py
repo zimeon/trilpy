@@ -21,7 +21,6 @@ class TCaseWithSetup(unittest.TestCase):
 
     port = 9999
     rooturi = 'http://localhost:' + str(port) + '/'
-    LDPC_URI = rooturi
     start_trilpy = True
     new_for_each_test = False
     run_ldp_tests = False
@@ -40,7 +39,7 @@ class TCaseWithSetup(unittest.TestCase):
                 if (r.status_code == 200):
                     break
                 else:
-                    raise Exception("Server started by returns bad status code %d" % (r.status_code))
+                    raise Exception("Server started but returns bad status code %d" % (r.status_code))
             except requests.exceptions.Timeout:
                 pass
             print("Waiting on trilpy startup (%ds)..." % (n))
@@ -94,6 +93,13 @@ class TCaseWithSetup(unittest.TestCase):
             return(len(values) > 0)
         else:
             return(value in values)
+
+    def parse_comma_list(self, header_str=None):
+        """List of comma separated values in header_str."""
+        if (header_str):
+            return re.split(r'''\s*,\s*''', header_str)
+        else:
+            return []
 
     def post_ldpnr(self, uri=None, data='', content_type='text/plain'):
         """POST to create a LDPNR, return location."""
@@ -174,7 +180,7 @@ class TestFedora(TCaseWithSetup):
         https://fcrepo.github.io/fcrepo-specification/#ldpnr-ixn-model
         """
         # POST Turtle object as LDR-NR
-        r = requests.post(self.LDPC_URI,
+        r = requests.post(self.rooturi,
                           headers={'Content-Type': 'text/turtle',
                                    'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
                           data='<http://ex.org/a> <http://ex.org/b> "123".')
@@ -207,7 +213,7 @@ class TestFedora(TCaseWithSetup):
         for container_type in ['http://www.w3.org/ns/ldp#BasicContainer',
                                'http://www.w3.org/ns/ldp#DirectContainer',
                                'http://www.w3.org/ns/ldp#IndirectContainer']:
-            r = requests.post(self.LDPC_URI,
+            r = requests.post(self.rooturi,
                               headers={'Content-Type': 'text/turtle',
                                        'Link': '<' + container_type + '>; rel="type"'},
                               data='<http://ex.org/a> <http://ex.org/b> "xyz".')
@@ -217,6 +223,50 @@ class TestFedora(TCaseWithSetup):
             r = requests.head(uri)
             links = r.headers.get('Link')
             self.assertIn(container_type, links)
+
+    def test_fedora_3_2(self):
+        """Check support for PATCH."""
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                          data='''
+                               @prefix x: <http://example.org/> .
+                               x:simeon x:has x:pizza .
+                               ''')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        self.assertTrue(uri)
+        # Any LDP-RS MUST support PATCH
+        r = requests.head(uri)
+        self.assertIn('PATCH', self.parse_comma_list(r.headers.get('Allow')))
+        self.assertIn('application/sparql-update', self.parse_comma_list(r.headers.get('Accept-Patch')))
+        patch_data = '''
+                     PREFIX x: <http://example.org/>
+                     DELETE { ?s x:has ?o . }
+                     INSERT { ?s x:ate ?o . }
+                     WHERE { ?s x:has ?o . }
+                     '''
+        # Reject unsupported PATCH content type
+        r = requests.patch(uri,
+                           headers={'Content-Type': 'bad-type/for-patch'},
+                           data=patch_data)
+        self.assertEqual(r.status_code, 415)
+        # Accept valid patch
+        r = requests.patch(uri,
+                           headers={'Content-Type': 'application/sparql-update'},
+                           data=patch_data)
+        self.assertEqual(r.status_code, 200)
+        # Attempt to change containment triples
+        r = requests.patch(uri,
+                           headers={'Content-Type': 'application/sparql-update'},
+                           data='''
+                                PREFIX ldp: <http://www.w3.org/ns/ldp#>
+                                INSERT DATA { <%s> ldp:contains ldp:stuff . }
+                                ''' % (uri))
+        self.assertEqual(r.status_code, 409)
+        self.assertTrue(self.links_include(
+            r.headers.get('link'),
+            'http://www.w3.org/ns/ldp#constrainedBy'))
 
     def test_fedora_3_3_1(self):
         """Check handling of Digest header."""

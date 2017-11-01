@@ -1,7 +1,9 @@
 """An LDPRS - RDF Source."""
 # import context_cache.for_rdflib_jsonld
+from collections import OrderedDict
 import hashlib
 import logging
+import pyparsing
 from rdflib import Graph, URIRef, Literal, BNode
 from rdflib.namespace import RDF, NamespaceManager
 import re
@@ -10,18 +12,42 @@ from .ldpr import LDPR
 from .namespace import LDP
 
 
+class PatchFailed(Exception):
+    """Patch failure exception."""
+
+    pass
+
+
+class PatchIllegal(PatchFailed):
+    """Patch failure because of illegal change."""
+
+    pass
+
+
 class LDPRS(LDPR):
     """Generic LDPRS.
 
     See <https://www.w3.org/TR/ldp/#ldprs>.
+
+    This is the base class for objects that have RDF content and thus
+    includes routines for parsing and output. The class properties
+    expose types that can be handled:
+
+    rdf_types - Media types for RDF supported (content type)
+
+    rdf_patch_types - Media types for HTTP PATCH method
     """
 
-    mime_to_rdflib_type = {
-        'text/turtle': 'turtle',
-        'application/ld+json': 'json-ld'
-    }
+    type_label = 'LDPRS'  
 
-    type_label = 'LDPRS'
+    media_to_rdflib_type = OrderedDict([
+        ('text/turtle', 'turtle'),   # default - must be first
+        ('application/ld+json', 'json-ld')
+    ])
+
+    rdf_media_types = list(media_to_rdflib_type.keys())
+
+    rdf_patch_types = ['application/sparql-update']
 
     def __init__(self, uri=None, content=None, **kwargs):
         """Initialize LDPRS as subclass of LDPR.
@@ -44,8 +70,37 @@ class LDPRS(LDPR):
             base = (b'@base <%b> .\n' % (context.encode('utf-8')))
             content = base + content
         self.content.parse(
-            format=self._mime_to_rdflib_type(content_type),
+            format=self._media_to_rdflib_type(content_type),
             data=content)
+
+    def patch(self, patch, content_type):
+        """Update this object with specifed patch that has given content_type.
+
+        Will raise PatchException and make no changed to the stored
+        data if the patch cannot be applied. Otherwise updates this
+        object's content.
+
+        patch is expected to be a string rather than bytes object.
+
+        Definition of 'application/sparql-update' at:
+        https://www.w3.org/TR/sparql11-update/#mediaType
+        """
+        if (content_type != 'application/sparql-update'):
+            raise PatchFailed("Unrecognized PATCH content type")
+        g = Graph() + self.content
+        try:
+            g.update(patch)
+        except pyparsing.ParseException as e:
+            raise PatchFailed("Failed to apply patch (bad patch data)")
+        # Check for attempt to modify containment triples
+        added_ct = self.extract_containment_triples(g)
+        existing_ct = Graph()
+        for triple in self.containment_triples():
+            existing_ct.add(triple)
+        if (len(existing_ct + added_ct) != len(existing_ct)):
+            raise PatchIllegal("Attempt to modify containment triples")
+        # success
+        self.content = g
 
     def get_container_type(self, context, default=None):
         """Find LDP container type from data supplied.
@@ -76,28 +131,27 @@ class LDPRS(LDPR):
         Search through data in the content of this resource and
         pull out all rdf:type statements associated with the
         context resource.
-
-        FIXME - presumably can make this more efficient!
         """
-        ctx = URIRef(context)
         types = set()
-        for (s, p, o) in self.content:
-            if (s == ctx and p == RDF.type):
-                types.add(o)
-                logging.debug("type: %s" % (str(o)))
+        for (s, p, o) in self.content.triples((URIRef(context), RDF.type, None)):
+            types.add(o)
+            logging.debug("type: %s" % (str(o)))
         return(types)
 
-    def extract_containment_triples(self):
+    def extract_containment_triples(self, content=None):
         """Remove and return set of containment triples from content.
+
+        If content is not specified then modify self.content.
 
         We store containment triples as server managed so we do
         not want these duplicated in the content.
         """
         ctriples = Graph()
-        for (s, p, o) in self.content:
-            if (p == LDP.contains):
-                ctriples.add((s, p, o))
-                self.content.remove((s, p, o))
+        if (content is None):
+            content = self.content
+        for (s, p, o) in content.triples((None, LDP.contains, None)):
+            ctriples.add((s, p, o))
+            content.remove((s, p, o))
         return(ctriples)
 
     def serialize(self, content_type='text/turtle', omits=None):
@@ -106,7 +160,7 @@ class LDPRS(LDPR):
         We also add in certain server managed triples required
         by LDP and/or Fedora.
 
-        If ptype is not None then apply the Prefer return=representation
+        If omits is not None then apply the Prefer return=representation
         preference to select only a subset of triples.
         """
         graph = Graph()
@@ -115,7 +169,7 @@ class LDPRS(LDPR):
             graph += self.content
         self.add_server_managed_triples(graph, omits)
         return(graph.serialize(
-            format=self._mime_to_rdflib_type(content_type),
+            format=self._media_to_rdflib_type(content_type),
             context="",
             indent=2).decode('utf-8'))
 
@@ -134,17 +188,26 @@ class LDPRS(LDPR):
         self.add_server_managed_triples(g)
         return(g)
 
+    def add_containment_triples(self, graph):
+        """Add containment triples to graph."""
+        for triple in self.containment_triples():
+            graph.add(triple)
+
+    def containment_triples(self):
+        """Generator for containment triples (empty for plain LDPRS)."""
+        return([])
+
     @property
     def rdf_types(self):
         """List of RDF types for this RDF source."""
         return([LDP.RDFSource, LDP.Resource])
 
-    def _mime_to_rdflib_type(self, content_type):
-        """Get rdflib type from mime content type."""
-        if (content_type in self.mime_to_rdflib_type):
-            return(self.mime_to_rdflib_type[content_type])
-        else:
-            raise Exception("Unknown RDF content type")
+    def _media_to_rdflib_type(self, content_type):
+        """Get rdflib type from mime/media content_type."""
+        try:
+            return(self.media_to_rdflib_type[content_type])
+        except:
+            raise Exception("Unknown RDF content type " + content_type)
 
     def _compute_etag(self):
         """Compute ETag value.
