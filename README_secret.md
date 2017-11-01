@@ -34,7 +34,11 @@ Total tests run: 78, Failures: 0, Skips: 19
 
 ### 3. [Resource Management](https://fcrepo.github.io/fcrepo-specification/#resource-management)
 
-Does not yet implement PATCH on LDPRS, does not add server managed triples to the output representations of LDPRS.
+Simple implementation of PATCH.
+
+Does not add all server managed triples to the output representations of LDPRS.
+
+Only BasicContainer implemented to any degree or included in testing.
 
 ### 4. [Resource Versioning](https://fcrepo.github.io/fcrepo-specification/#resource-versioning)
 
@@ -42,7 +46,7 @@ Not implemented.
 
 ### 5. [Resource Authorization](https://fcrepo.github.io/fcrepo-specification/#resource-authorization)
 
-Some implementation... 
+Some implementation but out of data with spec draft, needs reworking. 
 
 ### 6. [Notifications](https://fcrepo.github.io/fcrepo-specification/#notifications)
 
