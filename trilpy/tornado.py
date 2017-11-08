@@ -48,7 +48,10 @@ class LDPHandler(tornado.web.RequestHandler):
 
     def initialize(self):
         """Set up place to accumulate links for Link header."""
-        self._links = []
+        # request parsing
+        self._types = None  # values extracted from Link: rel="type"
+        # response building
+        self._links = []  # accumulate links for Link header
 
     def head(self):
         """HEAD - GET with no body."""
@@ -320,18 +323,30 @@ class LDPHandler(tornado.web.RequestHandler):
         logging.debug("Request content-type %s" % (content_type))
         return(content_type)
 
-    def request_ldp_type(self):
-        """LDP interaction model URI from request Link rel="type", else None."""
+    @property
+    def request_types(self):
+        """Type imformation from Link Link rel="type" headers.
+
+        Save all type names/URIS to self._types so we don't have
+        to work through this mulitple times if called more than
+        once.
+        """
+        if (self._types is not None):
+            return self._types
+        self._types = set()
         links = self.request.headers.get_list('link')
         if (len(links) > 1):
             raise HTTPError(400, "Multiple Link headers")
-        elif (len(links) == 0):
-            return(None)
-        # Extra set of types specified
-        types = set()
-        for link in requests.utils.parse_header_links(links[0]):
-            if ('rel' in link and link['rel'] == 'type' and 'url' in link):
-                types.add(link['url'])
+        elif (len(links) == 1):
+            # Extra set of types specified
+            for link in requests.utils.parse_header_links(links[0]):
+                if ('rel' in link and link['rel'] == 'type' and 'url' in link):
+                    self._types.add(link['url'])
+        return self._types
+
+    def request_ldp_type(self):
+        """LDP interaction model URI from request Link rel="type", else None."""
+        types = self.request_types
         # Look for LDP types starting with most specific
         is_ldpnr = (self.ldp_nonrdf_source in types)
         is_rdf = None
