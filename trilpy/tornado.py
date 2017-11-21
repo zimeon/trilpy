@@ -34,6 +34,7 @@ class LDPHandler(tornado.web.RequestHandler):
     support_patch = True
     support_delete = True
     support_acl = True
+    support_versioning = True
     require_if_match_etag = True
     base_uri = 'BASE'
     rdf_media_types = LDPRS.rdf_media_types
@@ -202,6 +203,9 @@ class LDPHandler(tornado.web.RequestHandler):
         Handles both RDF and Non-RDF sources. Look first at the Link header
         to determine the requested LDP interaction model.
         """
+        versioning = self.request_for_versioning()
+        if (versioning and not self.support_versioning):
+            raise HTTPError(400, "Versioning is not supported")
         model = self.request_ldp_type()
         content_type = self.request_content_type()
         content_type_is_rdf = content_type in self.rdf_media_types
@@ -325,7 +329,7 @@ class LDPHandler(tornado.web.RequestHandler):
 
     @property
     def request_types(self):
-        """Type imformation from Link Link rel="type" headers.
+        """Type imformation from Link rel="type" headers.
 
         Save all type names/URIS to self._types so we don't have
         to work through this mulitple times if called more than
@@ -362,6 +366,11 @@ class LDPHandler(tornado.web.RequestHandler):
             return(self.ldp_nonrdf_source)
         else:
             return(is_rdf)
+
+    def request_for_versioning(self):
+        """True if request specifies versioning through Link rel="type"."""
+        types = self.request_types
+        return('http://mementoweb.org/ns#OriginalResource' in types)
 
     def check_digest(self):
         """Check request Digest if present, raise 409 if bad, 400 if not supported.

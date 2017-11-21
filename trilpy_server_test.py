@@ -359,6 +359,26 @@ class TestFedora(TCaseWithSetup):
         r = requests.get(uri)
         self.assertEqual(r.content, new_data)
 
+    def test_fedore_4_3_1(self):
+        """Check request to create versioned resource."""
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type", '
+                                           '<http://mementoweb.org/ns#OriginalResource>; rel="type"'},
+                          data='<http://ex.org/a> <http://ex.org/b> "ceee".')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        self.assertTrue(uri)
+        r = requests.head(uri)
+        self.assertEqual(r.status_code, 200)
+        link_header = r.headers.get('link')
+        self.assertTrue(self.links_include(link_header,
+            'type', 'http://www.w3.org/ns/ldp#RDFSource'))
+        timemaps = self.find_links(link_header, 'timemap')
+        self.assertGreaterEqual(len(timemaps), 1, "At least one timemap link")
+
+
+
     def test_fedora_5_1(self):
         """Check ACLs are LDP RDF Sources."""
         r = requests.head(self.rooturi)
