@@ -12,9 +12,11 @@ import tornado.web
 from urllib.parse import urljoin, urlsplit
 
 from .digest import Digest, UnsupportedDigest, BadDigest
-from .ldpnr import LDPNR
-from .ldprs import LDPRS, PatchFailed, PatchIllegal
 from .ldpc import LDPC
+from .ldpcv import LDPCv
+from .ldpnr import LDPNR
+from .ldpr import LDPR
+from .ldprs import LDPRS, PatchFailed, PatchIllegal
 from .namespace import LDP
 from .prefer_header import ldp_return_representation_omits
 from .store import KeyDeleted
@@ -84,6 +86,11 @@ class LDPHandler(tornado.web.RequestHandler):
                                 "return=representation")
         self.add_links('type', resource.rdf_types)
         self.add_links('acl', [self.store.individual_acl(uri)])
+        if (resource.timemap is not None):
+            self.add_links('timemap', [resource.timemap])
+            self.add_links('original timegate', [resource.uri])
+            self.add_links('type', ['http://mementoweb.org/ns#TimeGate',
+                                    'http://mementoweb.org/ns#OriginalResource'])
         self.set_link_header()
         if (want_digest):
             self.set_header("Digest", want_digest.digest_value(content))
@@ -105,12 +112,16 @@ class LDPHandler(tornado.web.RequestHandler):
         logging.debug("POST %s" % (path))
         resource = self.from_store(uri)
         if (not isinstance(resource, LDPC)):
-            logging.debug("Rejecting POST to non-LDPC (%s)" %
-                          (str(resource)))
-            raise HTTPError(405)
+            raise HTTPError(405, "Rejecting POST to non-LDPC (%s)" % (str(resource)))
         new_resource = self.put_post_resource(uri)
         slug = self.request.headers.get('Slug')
         new_uri = self.store.add(new_resource, context=uri, slug=slug)
+        if (self.request_for_versioning()):
+            tm = LDPCv(uri=None, original=new_uri)
+            tm_uri = self.store.add(tm)  # no naming advice
+            logging.debug("POST Versioned request, timemap=%s" % (tm.uri))
+            new_resource.timemap = tm.uri
+            self.store.update(new_resource)
         new_path = self.uri_to_path(new_uri)
         self.set_header("Content-Type", "text/plain")
         self.set_header("Location", new_uri)
@@ -126,15 +137,14 @@ class LDPHandler(tornado.web.RequestHandler):
         HTTP: https://tools.ietf.org/html/rfc7231#section-4.3.4
         """
         if (not self.support_put):
-            raise HTTPError(405)
+            raise HTTPError(405, "PUT not supported")
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("PUT %s" % (path))
         # 5.2.4.2 LDP servers that allow LDPR creation via
         # PUT should not re-use URIs. => 409 if deleted
         if (uri in self.store.deleted):
-            logging.debug("Rejecting PUT to deleted URI")
-            raise HTTPError(409)
+            raise HTTPError(409, "Rejecting PUT to deleted URI")
         replace = False
         current_type = None
         if (uri in self.store):
@@ -142,6 +152,8 @@ class LDPHandler(tornado.web.RequestHandler):
             current_type = self.store[uri].rdf_type_uri
         resource = self.put_post_resource(uri, current_type)
         if (uri in self.store):
+            # FIXME - What about versioning PUT to replace requests?
+            #
             # 5.2.4.1 LDP servers SHOULD NOT allow HTTP PUT to
             # update an LDPC's containment triples; if the
             # server receives such a request, it SHOULD respond
@@ -151,9 +163,16 @@ class LDPHandler(tornado.web.RequestHandler):
             self.check_replace_via_put(current_resource, resource)
             # OK, do replace of content only
             current_resource.content = resource.content
+            self.store.update(current_resource)
         else:
             # New resource
             self.store.add(resource, uri)
+            if (self.request_for_versioning()):
+                tm = LDPCv(uri=None, original=r)
+                tm_uri = self.store.add(tm)  # no naming advice
+                logging.debug("PUT Versioned request, timemap=%s" % (tm.uri))
+                resource.timemap = tm.uri
+            self.store.update(resource)
         self.set_status(204 if replace else 201)
         logging.debug("PUT %s to %s OK" % (str(resource), uri))
 
@@ -165,12 +184,9 @@ class LDPHandler(tornado.web.RequestHandler):
         # Check ETags
         im = self.request.headers.get('If-Match')
         if (self.require_if_match_etag and im is None):
-            logging.debug("Missing If-Match header")
-            raise HTTPError(428)
+            raise HTTPError(428, "Missing If-Match header")
         elif (im is not None and im != old_resource.etag):
-            logging.debug("ETag mismatch: %s vs %s" %
-                          (im, old_resource.etag))
-            raise HTTPError(412)
+            raise HTTPError(412, "ETag mismatch: %s vs %s" % (im, old_resource.etag))
         # Check replacement details
         if (isinstance(old_resource, LDPNR) and
                 isinstance(new_resource, LDPNR)):
@@ -184,8 +200,7 @@ class LDPHandler(tornado.web.RequestHandler):
             old_ctriples = old_resource.server_managed_triples()
             new_ctriples = new_resource.extract_containment_triples()
             if (len(new_ctriples + old_ctriples) != len(old_ctriples)):
-                logging.debug("Rejecting attempt to change containment triples.")
-                raise HTTPError(409)
+                raise HTTPError(409, "Rejecting attempt to change containment triples")
         elif (isinstance(old_resource, LDPRS) and
               not isinstance(old_resource, LDPC) and
               isinstance(new_resource, LDPRS) and
@@ -193,18 +208,18 @@ class LDPHandler(tornado.web.RequestHandler):
             # FIXME - RDF Source checks
             pass
         else:
-            logging.debug("Rejecting incompatible replace of %s with %s" %
-                          (str(old_resource), str(new_resource)))
-            raise HTTPError(409)
+            raise HTTPError(409, "Rejecting incompatible replace of %s with %s" %
+                                 (str(old_resource), str(new_resource)))
 
     def put_post_resource(self, uri=None, current_type=None):
-        """Parse request data for PUT or POST.
+        """Create resource by pasring request data for PUT or POST.
 
         Handles both RDF and Non-RDF sources. Look first at the Link header
         to determine the requested LDP interaction model.
+
+        Returns resource object or raises HTTPError.
         """
-        versioning = self.request_for_versioning()
-        if (versioning and not self.support_versioning):
+        if (self.request_for_versioning() and not self.support_versioning):
             raise HTTPError(400, "Versioning is not supported")
         model = self.request_ldp_type()
         content_type = self.request_content_type()
@@ -217,61 +232,54 @@ class LDPHandler(tornado.web.RequestHandler):
             else:
                 # Check for incompatible replacements
                 if (model != self.ldp_nonrdf_source and not content_type_is_rdf):
-                    logging.warn("Attempt to replace LDPRS (or subclass) with non-RDF type %s" % (content_type))
-                    raise HTTPError(415)
+                    raise HTTPError(415, "Attempt to replace LDPRS (or subclass) with non-RDF type %s" % (content_type))
         elif (model is None):
             # Take default model (LDPRS or LDPNR) from content type
             model = self.ldp_rdf_source if content_type_is_rdf else self.ldp_nonrdf_source
         logging.warn('model ' + str(model))
+        #
+        # Now deal with the content
+        #
         self.check_digest()
         if (model != self.ldp_nonrdf_source):
             if (not content_type_is_rdf):
-                logging.warn("Unsupported RDF type: %s" % (content_type))
-                raise HTTPError(415)
+                raise HTTPError(415, "Unsupported RDF type: %s" % (content_type))
             try:
                 if (model in self.ldp_container_types):
-                    rs = LDPC(uri, container_type=model)
+                    r = LDPC(uri=uri, container_type=model)
                 else:
-                    rs = LDPRS(uri)
-                rs.parse(content=self.request.body,
-                         content_type=content_type,
-                         context=uri)
+                    r = LDPRS(uri=uri)
+                r.parse(content=self.request.body,
+                        content_type=content_type,
+                        context=uri)
             except Exception as e:
-                logging.warn("Failed to parse/add RDF: %s" % (str(e)))
-                raise HTTPError(400)
-            logging.debug("RDF--- " + rs.serialize())
-            return(rs)
+                raise HTTPError(400, "Failed to parse/add RDF: %s" % (str(e)))
+            logging.debug("RDF--- " + r.serialize())
         else:
-            return(LDPNR(uri=uri,
-                         content=self.request.body,
-                         content_type=content_type))
+            r = LDPNR(uri=uri, content=self.request.body, content_type=content_type)
+        return(r)
 
     def patch(self):
         """HTTP PATCH."""
         if (not self.support_patch):
-            raise HTTPError(405)
+            raise HTTPError(405, "PATCH not supported")
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("PATCH %s" % (path))
         resource = self.from_store(uri)
         if (not isinstance(resource, LDPRS)):
-            logging.debug("Rejecting PATCH to non-LDPRS (%s)" %
-                          (str(resource)))
-            raise HTTPError(405)
+            raise HTTPError(405, "Rejecting PATCH to non-LDPRS (%s)" % (str(resource)))
         self.check_digest()
         content_type = self.request_content_type()
         if (content_type not in self.rdf_patch_types):
-            logging.warn("Unsupported RDF PATCH type: %s" % (content_type))
-            raise HTTPError(415)
+            raise HTTPError(415, "Unsupported RDF PATCH type: %s" % (content_type))
         try:
             resource.patch(patch=self.request.body.decode('utf-8'),
                            content_type=content_type)
         except PatchIllegal as e:
-            logging.warn("Patch illegal: " + str(e))
-            raise HTTPError(409, str(e))
+            raise HTTPError(409, "PATCH illegal: " + str(e))
         except PatchFailed as e:
-            logging.warn("Patch failed: " + str(e))
-            raise HTTPError(400, str(e))
+            raise HTTPError(400, "PATCH failed: " + str(e))
         logging.debug("PATCH %s OK" % (uri))
 
     def delete(self):
@@ -280,8 +288,7 @@ class LDPHandler(tornado.web.RequestHandler):
         Optional in LDP <https://www.w3.org/TR/ldp/#ldpr-HTTP_DELETE>
         """
         if (not self.support_delete):
-            logging.debug("DELETE not supported")
-            raise HTTPError(405)
+            raise HTTPError(405, "DELETE not supported")
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("DELETE %s" % (path))
@@ -440,11 +447,9 @@ class LDPHandler(tornado.web.RequestHandler):
         try:
             return self.store[uri]
         except KeyDeleted:
-            logging.debug("Gone")
-            raise HTTPError(410)
+            raise HTTPError(410, "Resource has been deleted")
         except KeyError:
-            logging.debug("Not found")
-            raise HTTPError(404)
+            raise HTTPError(404, "Resource not found")
 
     def uri_to_path(self, uri):
         """Resource local path (with /) from URI."""
@@ -484,6 +489,7 @@ class LDPHandler(tornado.web.RequestHandler):
 
     def set_link_header(self):
         """Add Link header with set of rel uris."""
+        logging.debug('Link: ' + ', '.join(self._links))
         self.set_header('Link', ', '.join(self._links))
 
     def set_links(self, rel, uris):

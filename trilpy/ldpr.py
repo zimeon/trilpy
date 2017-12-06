@@ -16,11 +16,15 @@ class LDPR(object):
 
         content is expected to be in bytes not unicode
         """
+        # LDP properties
         self.uri = uri
         self.content = content
         self.contained_in = None
         self.member_of = None
         self.acl = acl
+        # Fedora versioned resource properties
+        self.timemap = None
+        # Cache values
         self._etag = None
 
     @property
