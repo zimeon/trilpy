@@ -4,7 +4,7 @@ DEMOWARE ONLY: NO ATTEMPT AT AUTH, THREAD SAFETY, PERSISTENCE.
 """
 import itertools
 import logging
-from negotiator2 import conneg_on_accept
+from negotiator2 import conneg_on_accept, memento_parse_datetime
 import os.path
 import requests.utils
 import tornado.ioloop
@@ -121,7 +121,23 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(405, "POST not supported on LDPRm/Memento")
         elif (not isinstance(resource, LDPC)):
             raise HTTPError(405, "Rejecting POST to non-LDPC (%s)" % (str(resource)))
-        new_resource = self.put_post_resource(uri)
+        datetime = None
+        if (resource.is_ldpcv):
+            mdt_header = self.request.headers.get('Memento-Datetime')
+            if (mdt_header):
+                try:
+                    datetime = memento_parse_datetime(mdt_header)
+                except ValueError:
+                    HTTPError(401, "Bad Memento-Datetime header")
+        if (resource.is_ldpcv and not datetime):
+            # Request to create LDPRm/Memento with copy of LDPRv content
+            ldprv = self.store[resource.original]
+            new_resource = type(ldprv)()
+            new_resource.content = ldprv.content
+            if (isinstance(ldprv, LDPNR)):
+                new_resource.content_type = ldprv.content_type
+        else:
+            new_resource = self.put_post_resource(uri)
         slug = self.request.headers.get('Slug')
         if (resource.is_ldpcv):
             # Request to create LDPRm/Memento

@@ -42,7 +42,9 @@ Only BasicContainer implemented to any degree or included in testing.
 
 ### 4. [Resource Versioning](https://fcrepo.github.io/fcrepo-specification/#resource-versioning)
 
-Partial implementation.
+Have implemented client managed version creation.
+
+May later implement server managed version creation as a configuration option (memento created for every update of a versioned resource). There seems to be no problem with this existing at the same time as client managed version creation, which is anyway necessary in order to import previously versioned data as might be needed in a migration.
 
 ### 5. [Resource Authorization](https://fcrepo.github.io/fcrepo-specification/#resource-authorization)
 
