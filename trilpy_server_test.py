@@ -729,14 +729,25 @@ class TestFedora(TCaseWithSetup):
 
     def test_fedora_5_3(self):
         """Check ACLs are discoverable via Link Headers."""
-        r = requests.head(self.rooturi)
-        self.assertEqual(r.status_code, 200)
-        self.assertTrue(self.links_include(r.headers.get('link'), 'acl'))
+        # Check root has an ACL
         r = requests.get(self.rooturi)
         self.assertEqual(r.status_code, 200)
         self.assertTrue(self.links_include(r.headers.get('link'), 'acl'))
+        # Since the individual acl URI MUST be expressed for each resource, whether
+        # or not it exists, we can test that the acl headers for two newly created
+        # resources are different.
+        acl_uris = []
+        for n in (1, 2):
+            ldpnr_uri = self.post_ldpnr()
+            r = requests.head(ldpnr_uri)
+            acls = self.find_links(r.headers.get('link'), 'acl')
+            self.assertEqual(len(acls), 1, "Expect one ACL URI in Link header")
+            acl_uris.append(acls[0])
+            # Cleanup
+            requests.delete(ldpnr_uri)
+        self.assertNotEqual(acl_uris[0], acl_uris[1])
 
-    def test_fedora_5_4(self):
+    def test_fedora_5_6(self):
         """Check ACL inheritance."""
         # ACL for root
         r = requests.head(self.rooturi)
