@@ -2,7 +2,8 @@
 """Test trilpy by running on localhost."""
 import argparse
 import unittest
-from urllib.parse import urljoin
+import http.client
+from urllib.parse import urljoin, urlparse
 from subprocess import Popen, run
 from rdflib import Graph, URIRef, Literal
 import re
@@ -454,6 +455,7 @@ class TestFedora(TCaseWithSetup):
                                 ''' % (uri))
         self.assert_4xx_with_link_to_constraints(r, 409)
 
+
     def test_fedora_4_1_1_and_4(self):
         """Check request to create versioned resource.
 
@@ -502,6 +504,43 @@ class TestFedora(TCaseWithSetup):
                 self.assertTrue(self.links_include(link_header,
                                                    'type', 'http://mementoweb.org/ns#TimeMap'), "Is TimeMap")
                 self.assert_allow_includes(r, ('GET', 'HEAD', 'OPTIONS'))
+
+    def test_fedora_4_1_1_multiple_link_headers(self):
+        """Check support for single or combined Link headers.
+
+        Multiple Link header values are required in order to support creation
+        of LDPRv. Following https://tools.ietf.org/html/rfc7230#section-3.2.2
+        multiple Link headers are to be treated the same as additional
+        comma separated link-value entries as described in
+        https://tools.ietf.org/html/rfc5988#section-5
+        """
+        # In spite of old comments suggesting a way to send a list of tuples,
+        # or some other class supporting items() that then provides tuples, I
+        # do not think there is currently any way to coerce the requests module
+        # into sending multiple headers of the same name. It also seems hard
+        # (or perhaps impossible) to do with current urllib.request so here
+        # I use the low-level interface to http.client where the putheader()
+        # allows multiple headers to be sent.
+        link1 = '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'
+        link2 = '<http://mementoweb.org/ns#OriginalResource>; rel="type"'
+        for headers in [[('Content-Type', 'text/plain'), ('Link', link1 + ',' + link2)],
+                        [('Content-Type', 'text/plain'), ('Link', link1), ('Link', link2)],
+                        [('Content-Type', 'text/plain'), ('Link', link2), ('Link', link1)]]:
+            u = urlparse(self.rooturi)
+            conn = http.client.HTTPConnection(u.netloc)
+            conn.connect()
+            conn.putrequest("POST", u.path)
+            for (name, value) in headers:
+                conn.putheader(name, value)
+            conn.endheaders()
+            conn.send(b'some-data')
+            response = conn.getresponse()
+            ldprv_uri = response.info()['Location']
+            conn.close()
+            self.assertTrue(ldprv_uri)
+            r = requests.head(ldprv_uri)
+            self.assert_link_types_include(r, ['http://mementoweb.org/ns#OriginalResource',
+                                               'http://www.w3.org/ns/ldp#NonRDFSource'])
 
     def test_fedora_4_1_2(self):
         """LDPRv: An implementation must support PUT, as is the case for any LDPR."""

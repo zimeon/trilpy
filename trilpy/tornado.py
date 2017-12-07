@@ -256,7 +256,7 @@ class LDPHandler(tornado.web.RequestHandler):
         model = self.request_ldp_type()
         content_type = self.request_content_type()
         content_type_is_rdf = content_type in self.rdf_media_types
-        logging.warn("got-content-type " + content_type)
+        logging.debug("Request Content-Type: " + content_type)
         if (current_type is not None):  # Replacements
             if (model is None):
                 # Assume current type on replace where not model specified
@@ -268,7 +268,7 @@ class LDPHandler(tornado.web.RequestHandler):
         elif (model is None):
             # Take default model (LDPRS or LDPNR) from content type
             model = self.ldp_rdf_source if content_type_is_rdf else self.ldp_nonrdf_source
-        logging.warn('model ' + str(model))
+        logging.debug('POST/PUT model: ' + str(model))
         #
         # Now deal with the content
         #
@@ -392,6 +392,7 @@ class LDPHandler(tornado.web.RequestHandler):
         self._request_links = dict()
         link_headers = self.request.headers.get_list('link')
         for link_header in link_headers:
+            logging.debug("Request Link: " + link_header)
             for link in requests.utils.parse_header_links(link_header):
                 if ('rel' in link and 'url' in link):
                     rel = link['rel']
