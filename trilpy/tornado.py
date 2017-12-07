@@ -51,6 +51,7 @@ class LDPHandler(tornado.web.RequestHandler):
 
     def initialize(self):
         """Set up place to accumulate links for Link header."""
+        logging.debug('_______________________________________')
         # request parsing
         self._request_links = None  # values extracted from Link: rel=".."
         # response building
@@ -70,7 +71,8 @@ class LDPHandler(tornado.web.RequestHandler):
         if (isinstance(resource, LDPNR)):
             content_type = resource.content_type
             content = resource.content
-            logging.debug("Non-RDF content, size=%dbytes" % (len(content)))
+            logging.debug("Non-RDF response: %d bytes, starts %s" %
+                          (len(content), content[:30]))
         else:
             content_type = conneg_on_accept(
                 resource.rdf_media_types, self.request.headers.get("Accept"))
@@ -80,10 +82,12 @@ class LDPHandler(tornado.web.RequestHandler):
             # logging.debug("Prefer: " + str(self.request.headers.get_list('Prefer')))
             logging.debug("Omits: " + str(omits))
             content = resource.serialize(content_type, omits)
-            logging.debug("RDF content:\n" + content)
+            if (len(resource) < 20):
+                logging.debug("RDF response:\n" + content)
+            else:
+                logging.debug("RDF response: %d triples" % (len(resource)))
             if (len(omits) > 0):
-                self.set_header("Preference-Applied",
-                                "return=representation")
+                self.set_header("Preference-Applied", "return=representation")
         self.add_links('type', resource.rdf_types)
         self.add_links('acl', [self.store.individual_acl(uri)])
         if (resource.is_ldprv):
@@ -256,7 +260,6 @@ class LDPHandler(tornado.web.RequestHandler):
         model = self.request_ldp_type()
         content_type = self.request_content_type()
         content_type_is_rdf = content_type in self.rdf_media_types
-        logging.debug("Request Content-Type: " + content_type)
         if (current_type is not None):  # Replacements
             if (model is None):
                 # Assume current type on replace where not model specified
@@ -286,7 +289,10 @@ class LDPHandler(tornado.web.RequestHandler):
                         context=uri)
             except Exception as e:
                 raise HTTPError(400, "Failed to parse/add RDF: %s" % (str(e)))
-            logging.debug("RDF--- " + r.serialize())
+            if (len(r) < 20):
+                logging.debug("Request RDF parsed:\n" + r.serialize())
+            else:
+                logging.debug("Request RDF: %d triples" % (len(r)))
         else:
             r = LDPNR(uri=uri, content=self.request.body, content_type=content_type)
         return(r)
@@ -373,7 +379,7 @@ class LDPHandler(tornado.web.RequestHandler):
         elif (len(cts) == 0):
             raise HTTPError(400, "No Content-Type header")
         content_type = cts[0].split(';')[0]
-        logging.debug("Request content-type %s" % (content_type))
+        logging.debug("Request Content-Type: " + content_type)
         return(content_type)
 
     @property

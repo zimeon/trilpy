@@ -164,10 +164,9 @@ class TCaseWithSetup(unittest.TestCase):
         """Assert that LPC at ldpc_uri does not ldp:contains uri."""
         g = self.request_and_parse_graph(ldpc_uri)
         self.assertNotIn((URIRef(ldpc_uri),
-                       URIRef("http://www.w3.org/ns/ldp#contains"),
-                       URIRef(uri)),
-                      g, msg)
-
+                          URIRef("http://www.w3.org/ns/ldp#contains"),
+                          URIRef(uri)),
+                         g, msg)
 
     def parse_comma_list(self, header_str=None):
         """List of comma separated values in header_str."""
@@ -322,7 +321,6 @@ class TestFedora(TCaseWithSetup):
             links = r.headers.get('Link')
             self.assertIn(container_type, links)
 
-
     def test_fedora_3_3_1(self):
         """Check handling of Digest header."""
         if (not self.digest):
@@ -415,7 +413,7 @@ class TestFedora(TCaseWithSetup):
         self.assertEqual(r.content, new_data)
 
     def test_fedora_3_7(self):
-        """Implementations MUST support PATCH."""
+        """Check implementations MUST support PATCH."""
         r = requests.post(self.rooturi,
                           headers={'Content-Type': 'text/turtle',
                                    'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
@@ -454,7 +452,6 @@ class TestFedora(TCaseWithSetup):
                                 INSERT DATA { <%s> ldp:contains ldp:stuff . }
                                 ''' % (uri))
         self.assert_4xx_with_link_to_constraints(r, 409)
-
 
     def test_fedora_4_1_1_and_4(self):
         """Check request to create versioned resource.
@@ -683,6 +680,7 @@ class TestFedora(TCaseWithSetup):
                                      r'''^<''' + ldprv_uri + r'''>\s*;\s*rel="original''')
                     self.assertRegex(r.content.decode('utf-8'),
                                      r'''<''' + ldpcv_uri + r'''>\s*;\s*rel="self"''')
+
     def test_fedora_4_3_2(self):
         """LDPCv OPTIONS."""
         # 4.3.2 ... MUST Allow: GET, HEAD, OPTIONS
