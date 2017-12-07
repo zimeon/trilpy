@@ -325,7 +325,15 @@ class LDPHandler(tornado.web.RequestHandler):
         path = self.request.path
         uri = self.path_to_uri(path)
         logging.debug("DELETE %s" % (path))
-        self.from_store(uri)  # handles 404/410 if not present
+        resource = self.from_store(uri)  # handles 404/410 if not present
+        if (resource.is_ldpcv):
+            # Remove versioning from original, remove Memento
+            ldprv = self.store[resource.original]
+            ldprv.timemap = None
+            self.store.update(resource.original)
+            for contained in resource.contains:
+                # FIXME - What to do about any Mementos that might themselves be LDPC?
+                self.store.delete(contained)
         self.store.delete(uri)
         self.confirm("Deleted")
 

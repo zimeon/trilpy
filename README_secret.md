@@ -27,7 +27,7 @@ Mostly done, requires more work around containers. Currently passes the [LDP Tes
 ...
 ===============================================
 LDP Test Suite
-Total tests run: 78, Failures: 0, Skips: 19
+Total tests run: 78, Failures: 0, Skips: 21
 ===============================================
 ...
 ```

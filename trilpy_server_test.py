@@ -24,6 +24,7 @@ class TCaseWithSetup(unittest.TestCase):
     start_trilpy = True
     new_for_each_test = False
     run_ldp_tests = False
+    skip_should = False
     digest = None
 
     @classmethod
@@ -100,11 +101,18 @@ class TCaseWithSetup(unittest.TestCase):
             return(value in values)
 
     def assert_link_types_include(self, r, link_types):
-        """Response r inclued Link header with rel='type' for link_types (list)."""
+        """Response r include Link header with rel='type' for link_types (list)."""
         link_header = r.headers.get('link')
         type_links = self.find_links(link_header, 'type')
         for link_type in link_types:
             self.assertIn(link_type, type_links)
+
+    def assert_link_types_do_not_include(self, r, link_types):
+        """Response r does not include Link header with rel='type' for link_types (list)."""
+        link_header = r.headers.get('link')
+        type_links = self.find_links(link_header, 'type')
+        for link_type in link_types:
+            self.assertNotIn(link_type, type_links)
 
     def allows(self, r):
         """List of HTTP methods from Allow header."""
@@ -132,18 +140,33 @@ class TCaseWithSetup(unittest.TestCase):
         self.assertTrue(self.links_include(r.headers.get('link'),
                                            'http://www.w3.org/ns/ldp#constrainedBy'))
 
-    def assert_ldpc_contains(self, ldpc_uri, uri, msg=None):
-        """Assert that LPC at ldpc_uri ldp:contains uri."""
-        r = requests.get(ldpc_uri)
+    def request_and_parse_graph(self, uri, check_container=False):
+        """Return RDF graph from uri."""
+        r = requests.get(uri)
         self.assertEqual(r.status_code, 200)
         link_header = r.headers.get('Link')
-        self.assertTrue(self.links_include(link_header, 'type', 'ANY_CONTAINER'), "Is LDPC")
+        if (check_container):
+            self.assertTrue(self.links_include(link_header, 'type', 'ANY_CONTAINER'), "Is LDPC")
         g = Graph()
         g.parse(format='turtle', data=r.content)
+        return g
+
+    def assert_ldpc_contains(self, ldpc_uri, uri, msg=None):
+        """Assert that LPC at ldpc_uri ldp:contains uri."""
+        g = self.request_and_parse_graph(ldpc_uri)
         self.assertIn((URIRef(ldpc_uri),
                        URIRef("http://www.w3.org/ns/ldp#contains"),
                        URIRef(uri)),
                       g, msg)
+
+    def assert_ldpc_does_not_contain(self, ldpc_uri, uri, msg=None):
+        """Assert that LPC at ldpc_uri does not ldp:contains uri."""
+        g = self.request_and_parse_graph(ldpc_uri)
+        self.assertNotIn((URIRef(ldpc_uri),
+                       URIRef("http://www.w3.org/ns/ldp#contains"),
+                       URIRef(uri)),
+                      g, msg)
+
 
     def parse_comma_list(self, header_str=None):
         """List of comma separated values in header_str."""
@@ -675,6 +698,25 @@ class TestFedora(TCaseWithSetup):
         else:
             self.assert_4xx_with_link_to_constraints(r)
 
+    def test_fedora_4_3_4(self):
+        """LDPCv DELETE, if supported."""
+        ldprv_data = '<http://ex.org/4_3_3> <http://ex.org/a> "DELETE Test".'
+        (ldprv_uri, ldpcv_uri) = self.post_ldprv(data=ldprv_data)
+        r = requests.options(ldpcv_uri)
+        if ('DELETE' not in self.allows(r)):
+            self.skipTest("Implementation doesn't support DELETE to LDPCv")
+        r = requests.head(ldprv_uri)
+        self.assert_link_types_include(r, ['http://mementoweb.org/ns#OriginalResource',
+                                           'http://mementoweb.org/ns#TimeGate'])
+        r = requests.delete(ldpcv_uri)
+        self.assertIn(r.status_code, (200, 204))
+        r = requests.head(ldpcv_uri)
+        self.assertIn(r.status_code, (404, 410))  # FIXME - tighter than LDP spec
+        if (not self.skip_should):
+            r = requests.head(ldprv_uri)
+            self.assert_link_types_do_not_include(r, ['http://mementoweb.org/ns#OriginalResource',
+                                                      'http://mementoweb.org/ns#TimeGate'])
+
     def test_fedora_5_1(self):
         """Check ACLs are LDP RDF Sources."""
         r = requests.head(self.rooturi)
@@ -880,6 +922,8 @@ if __name__ == '__main__':
                         help="Start trilpy on port")
     parser.add_argument('--digest', action='store', default='sha1',
                         help="Digest type to test.")
+    parser.add_argument('--skip-should', action='store_true',
+                        help="Skip tests marked as SHOULD in TestLDP and TestFedora")
     parser.add_argument('--VeryVerbose', '-V', action='store_true',
                         help="be verbose.")
     parser.add_argument('--help', '-h', action='store_true',
@@ -887,6 +931,7 @@ if __name__ == '__main__':
     (opts, args) = parser.parse_known_args()
     TCaseWithSetup.port = opts.port
     TCaseWithSetup.digest = opts.digest
+    TCaseWithSetup.skip_should = opts.skip_should
     if (opts.rooturi):
         TCaseWithSetup.start_trilpy = False
         TCaseWithSetup.rooturi = opts.rooturi
