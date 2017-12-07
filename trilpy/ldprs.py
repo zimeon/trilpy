@@ -58,6 +58,10 @@ class LDPRS(LDPR):
         super(LDPRS, self).__init__(uri, **kwargs)
         self.content = Graph() if (content is None) else content
 
+    def __len__(self):
+        """Number of content triples."""
+        return len(self.content)
+
     def parse(self, content, content_type='text/turtle', context=None):
         """Parse RDF and add to this LDPRS.
 
