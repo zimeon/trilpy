@@ -52,7 +52,7 @@ class LDPHandler(tornado.web.RequestHandler):
     def initialize(self):
         """Set up place to accumulate links for Link header."""
         # request parsing
-        self._types = None  # values extracted from Link: rel="type"
+        self._request_links = None  # values extracted from Link: rel=".."
         # response building
         self._links = []  # accumulate links for Link header
 
@@ -121,6 +121,7 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(405, "POST not supported on LDPRm/Memento")
         elif (not isinstance(resource, LDPC)):
             raise HTTPError(405, "Rejecting POST to non-LDPC (%s)" % (str(resource)))
+        acl_uri = self.request_acl_uri()
         datetime = None
         if (resource.is_ldpcv):
             mdt_header = self.request.headers.get('Memento-Datetime')
@@ -376,25 +377,38 @@ class LDPHandler(tornado.web.RequestHandler):
         return(content_type)
 
     @property
-    def request_types(self):
-        """Type imformation from Link rel="type" headers.
+    def request_links(self):
+        """Dict of lists of Link header url values keyed by rel.
 
-        Save all type names/URIS to self._types so we don't have
-        to work through this mulitple times if called more than
-        once.
+        Saves all data from Link rel="..." headers to avoid
+        parsing repeatedly.
         """
-        if (self._types is not None):
-            return self._types
-        self._types = set()
+        if (self._request_links is not None):
+            return self._request_links
+        self._request_links = dict()
         links = self.request.headers.get_list('link')
         if (len(links) > 1):
-            raise HTTPError(400, "Multiple Link headers")
+            raise HTTPError(400, "Multiple Link headers in request")
         elif (len(links) == 1):
-            # Extra set of types specified
             for link in requests.utils.parse_header_links(links[0]):
-                if ('rel' in link and link['rel'] == 'type' and 'url' in link):
-                    self._types.add(link['url'])
-        return self._types
+                if ('rel' in link and 'url' in link):
+                    rel = link['rel']
+                    url = link['url']
+                    if (rel not in self._request_links):
+                        self._request_links[rel] = list()
+                    if (link not in self._request_links[rel]):
+                        self._request_links[rel].append(url)
+        return self._request_links
+
+    def request_links_rel(self, rel):
+        """List (possibly empty) of Link rel="..." headers for given rel."""
+        links = self.request_links
+        return links[rel] if (rel in links) else []
+
+    @property
+    def request_types(self):
+        """Type information from Link rel="type" headers, or empty set()."""
+        return self.request_links_rel('type')
 
     def request_ldp_type(self):
         """LDP interaction model URI from request Link rel="type", else None."""
@@ -414,6 +428,18 @@ class LDPHandler(tornado.web.RequestHandler):
             return(self.ldp_nonrdf_source)
         else:
             return(is_rdf)
+
+    def request_acl_uri(self):
+        """ACL URI in request header else None, must be local if specified."""
+        acls = self.request_links_rel('acl')
+        if (len(acls) == 0):
+            return None
+        if (len(acls) > 1):
+            raise HTTPError(400, 'Multiple Link rel="acl" in request')
+        acl_uri = acls[0]
+        if (not acl_uri.startswith(self.base_uri)):  # FIXME - need better test
+            raise HTTPError(400, 'Non-local acl rel="acl" specified')
+        return acl_uri
 
     def request_for_versioning(self):
         """True if request specifies versioning through Link rel="type"."""

@@ -725,11 +725,9 @@ class TestFedora(TCaseWithSetup):
         self.assertEqual(len(acls), 1)
         r = requests.head(acls[0])
         self.assertEqual(r.status_code, 200)
-        self.assertTrue(self.links_include(
-            r.headers.get('link'),
-            'type', 'http://www.w3.org/ns/ldp#RDFSource'))
+        self.assert_link_types_include(r, ['http://www.w3.org/ns/ldp#RDFSource'])
 
-    def test_fedora_5_2(self):
+    def test_fedora_5_3(self):
         """Check ACLs are discoverable via Link Headers."""
         r = requests.head(self.rooturi)
         self.assertEqual(r.status_code, 200)
@@ -738,7 +736,7 @@ class TestFedora(TCaseWithSetup):
         self.assertEqual(r.status_code, 200)
         self.assertTrue(self.links_include(r.headers.get('link'), 'acl'))
 
-    def test_fedora_5_3(self):
+    def test_fedora_5_4(self):
         """Check ACL inheritance."""
         # ACL for root
         r = requests.head(self.rooturi)
@@ -783,6 +781,21 @@ class TestFedora(TCaseWithSetup):
         # Cleanup
         r = requests.delete(child_uri)
         r = requests.delete(grandchild_uri)
+
+    def test_fedora_5_9(self):
+        """Test ACL linking on resource creation."""
+        # POST or PUT request to create a new LDPR may include a Link: rel="acl"
+        # header referencing an existing LDP-RS to use as the ACL for the new LDPR.
+        # The server must reject the request and respond with a 4xx or 5xx range
+        # status code, such as 409 (Conflict) if it isn't able to create the LDPR
+        # with the specified LDP-RS as the ACL. In that response, the restrictions
+        # causing the request to fail must be described in a resource indicated by
+        # a Link: rel="http://www.w3.org/ns/ldp#constrainedBy" response header,
+        # following the pattern of [LDP] 4.2.1.6.
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                          data='')
 
     def test_fedora_7_2(self):
         """Test transmission fixity."""
@@ -908,6 +921,15 @@ class TestTrilpy(TCaseWithSetup):
         self.assertNotIn('"POST Test"', content_str)  # LDPRv data overwritten
         self.assertIn('"USE_ME"', content_str)  # POST data used
         self.assert_ldpc_contains(ldpcv_uri, loc, "POSTed Memento is in LDPCv")
+
+    def test_trilpy_5_2(self):
+        """Cross domain ACLs not allowed => MUST be rejected with 4xx and constraints."""
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type",'
+                                           '<http://example.org/external-acl>; rel="acl"'},
+                          data='')
+        self.assert_4xx_with_link_to_constraints(r)
 
 
 # If run from command line, do tests
