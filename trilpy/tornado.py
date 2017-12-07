@@ -86,11 +86,17 @@ class LDPHandler(tornado.web.RequestHandler):
                                 "return=representation")
         self.add_links('type', resource.rdf_types)
         self.add_links('acl', [self.store.individual_acl(uri)])
-        if (resource.timemap is not None):
+        if (resource.is_ldprv):
             self.add_links('timemap', [resource.timemap])
             self.add_links('original timegate', [resource.uri])
             self.add_links('type', ['http://mementoweb.org/ns#TimeGate',
                                     'http://mementoweb.org/ns#OriginalResource'])
+            self.set_header("Vary", 'Accept-Datetime')
+        elif (resource.is_ldpcv):
+            self.add_links('original timegate', [resource.original])  # FIXME - need this?
+            self.add_links('type', ['http://mementoweb.org/ns#TimeMap'])
+        elif (resource.is_ldprm):
+            self.add_links('type', ['http://mementoweb.org/ns#Memento'])
         self.set_link_header()
         if (want_digest):
             self.set_header("Digest", want_digest.digest_value(content))
@@ -111,10 +117,16 @@ class LDPHandler(tornado.web.RequestHandler):
         uri = self.path_to_uri(path)
         logging.debug("POST %s" % (path))
         resource = self.from_store(uri)
-        if (not isinstance(resource, LDPC)):
+        if (resource.is_ldprm):
+            raise HTTPError(405, "POST not supported on LDPRm/Memento")
+        elif (not isinstance(resource, LDPC)):
             raise HTTPError(405, "Rejecting POST to non-LDPC (%s)" % (str(resource)))
         new_resource = self.put_post_resource(uri)
         slug = self.request.headers.get('Slug')
+        if (resource.is_ldpcv):
+            # Request to create LDPRm/Memento
+            new_resource.original = resource.original
+            new_resource.timemap = resource.uri
         new_uri = self.store.add(new_resource, context=uri, slug=slug)
         if (self.request_for_versioning()):
             tm = LDPCv(uri=None, original=new_uri)
@@ -149,7 +161,10 @@ class LDPHandler(tornado.web.RequestHandler):
         current_type = None
         if (uri in self.store):
             replace = True
-            current_type = self.store[uri].rdf_type_uri
+            current_resource = self.store[uri]
+            current_type = current_resource.rdf_type_uri
+            if (current_resource.is_ldprm):
+                raise HTTPError(405, "PUT not supported on LDPRm/Memento")
         resource = self.put_post_resource(uri, current_type)
         if (uri in self.store):
             # FIXME - What about versioning PUT to replace requests?
@@ -267,6 +282,8 @@ class LDPHandler(tornado.web.RequestHandler):
         uri = self.path_to_uri(path)
         logging.debug("PATCH %s" % (path))
         resource = self.from_store(uri)
+        if (resource.is_ldprm):
+            raise HTTPError(405, "PATCH not supported on LDPRm/Memento")
         if (not isinstance(resource, LDPRS)):
             raise HTTPError(405, "Rejecting PATCH to non-LDPRS (%s)" % (str(resource)))
         self.check_digest()

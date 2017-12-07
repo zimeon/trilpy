@@ -14,3 +14,8 @@ class LDPCv(LDPC):
         super(LDPCv, self).__init__(uri, **kwargs)
         self.original = original
         self.type_label = 'LDPCv'
+
+    @property
+    def is_ldpcv(self):
+        """True, this object is an LDPCv."""
+        return(True)
