@@ -110,7 +110,7 @@ class TCaseWithSetup(unittest.TestCase):
         """List of HTTP methods from Allow header."""
         allow = r.headers.get('allow')
         self.assertNotEqual(allow, None, "Includes Allow: header")
-        return re.split(r''',\s*''', allow)
+        return self.parse_comma_list(allow)
 
     def assertAllowIncludes(self, r, methods):
         """Response r has Allow: header which includes methods (list)."""
@@ -267,7 +267,7 @@ class TestFedora(TCaseWithSetup):
         self.assertTrue(uri)
         # Any LDP-RS MUST support PATCH
         r = requests.head(uri)
-        self.assertIn('PATCH', self.parse_comma_list(r.headers.get('Allow')))
+        self.assertIn('PATCH', self.allows(r))
         self.assertIn('application/sparql-update', self.parse_comma_list(r.headers.get('Accept-Patch')))
         patch_data = '''
                      PREFIX x: <http://example.org/>
@@ -388,7 +388,7 @@ class TestFedora(TCaseWithSetup):
         r = requests.get(uri)
         self.assertEqual(r.content, new_data)
 
-    def test_fedora_4_1_1_and_4_and_4_3_1(self):
+    def test_fedora_4_1_1_and_4(self):
         """Check request to create versioned resource.
 
         Should be able to create a versioned resource for all types supported.
@@ -407,7 +407,8 @@ class TestFedora(TCaseWithSetup):
             self.assertEqual(r.status_code, 201)
             uri = r.headers.get('Location')
             self.assertTrue(uri)
-            for r in (requests.head(uri), requests.get(uri)):
+            for method in (requests.head, requests.get):
+                r = method(uri)
                 self.assertEqual(r.status_code, 200)
                 link_header = r.headers.get('link')
                 self.assertTrue(self.links_include(link_header,
@@ -424,7 +425,8 @@ class TestFedora(TCaseWithSetup):
                 tm_uri = timemaps[0]
                 self.assertEqual(r.headers.get('vary'), 'Accept-Datetime')
             # and a version container LDPCv MUST be created ... 4.3.1 GET on LDPCv
-            for r in (requests.head(tm_uri), requests.get(tm_uri)):
+            for method in (requests.head, requests.get):
+                r = method(tm_uri)
                 self.assertEqual(r.status_code, 200)
                 link_header = r.headers.get('link')
                 self.assertTrue(self.links_include(link_header,
@@ -531,6 +533,61 @@ class TestFedora(TCaseWithSetup):
                 g = Graph()
                 g.parse(format='turtle', data=r.content)
                 self.assertNotIn(URIRef(ldprm_uri), g.objects())
+
+    def test_fedora_4_3(self):
+        """LDPCv general tests."""
+        # 4.3 An implementation must not allow the creation of an LDPCv that is
+        # LDP-contained by its associated LDPRv.
+        pass  # FIXME - how can this be tested?
+
+    def test_fedora_4_3_1(self):
+        """LDPCv GET and HEAD."""
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                       'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type", '
+                                               '<http://mementoweb.org/ns#OriginalResource>; rel="type"'},
+                          data='<http://ex.org/4_3_i> <http://ex.org/am_a> "LDPC and LDPRv".')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        self.assertTrue(uri)
+        r = requests.head(uri)
+        link_header = r.headers.get('link')
+        tm_uri = self.find_links(link_header, 'timemap')[0]
+        # 4.3.1 GET on LDPCv
+        for method in (requests.head, requests.get):
+            # An LDPCv must respond to GET Accept: application/link-format as indicated
+            # in [RFC7089] section 5 and specified in [RFC6690] section 7.3
+            # --> test this and Turtle
+            for content_type in ('text/turtle', 'application/link-format'):
+                r = method(tm_uri,
+                           headers={'Accept': content_type})
+                self.assertEqual(r.status_code, 200)
+                link_header = r.headers.get('link')
+                self.assertTrue(self.links_include(link_header,
+                                                   'type', 'http://www.w3.org/ns/ldp#RDFSource'), "Is LDP-RS")
+                self.assertTrue(self.links_include(link_header,
+                                                   'type', 'ANY_CONTAINER'), "Is LDPC")
+                self.assertTrue(self.links_include(link_header,
+                                                   'type', 'http://mementoweb.org/ns#TimeMap'), "Is TimeMap")
+                # An implementation must include the Allow header as outlined
+                # in 4.3.2 HTTP OPTIONS.
+                self.assertAllowIncludes(r, ('GET', 'HEAD', 'OPTIONS'))
+                if ('POST' in self.allows(r)):
+                    # If an LDPCv supports POST, then it must include the Accept-Post header
+                    accept_post = r.headers.get('Accept-Post')
+                    self.assertNotEqual(accept_post, None, 'Accept-Post required if POST supported')
+                    self.assertIn('text/turtle', self.parse_comma_list(accept_post))
+                if ('PATCH' in self.allows(r)):
+                    # If an LDPCv supports PATCH, then it must include the Accept-Patch header
+                    accept_patch = r.headers.get('Accept-Patch')
+                    self.assertNotEqual(accept_patch, None, 'Accept-Patch required if PATCH supported')
+                    self.assertIn('application/sparql-update', self.parse_comma_list(accept_patch))
+                if (method == requests.get and content_type == 'application/link-format'):
+                    # FIXME - need more tests for response format
+                    self.assertRegex(r.content.decode('utf-8'),
+                                     r'''^<''' + uri + r'''>\s*;\s*rel="original''')
+                    self.assertRegex(r.content.decode('utf-8'),
+                                     r'''<''' + tm_uri + r'''>\s*;\s*rel="self"''')
 
     def test_fedora_5_1(self):
         """Check ACLs are LDP RDF Sources."""

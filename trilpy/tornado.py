@@ -73,7 +73,7 @@ class LDPHandler(tornado.web.RequestHandler):
             logging.debug("Non-RDF content, size=%dbytes" % (len(content)))
         else:
             content_type = conneg_on_accept(
-                self.rdf_media_types, self.request.headers.get("Accept"))
+                resource.rdf_media_types, self.request.headers.get("Accept"))
             # Is there a Prefer return=representation header?
             omits = ldp_return_representation_omits(
                 self.request.headers.get_list('Prefer'))
