@@ -381,16 +381,18 @@ class LDPHandler(tornado.web.RequestHandler):
         """Dict of lists of Link header url values keyed by rel.
 
         Saves all data from Link rel="..." headers to avoid
-        parsing repeatedly.
+        parsing repeatedly. Note that per
+        https://tools.ietf.org/html/rfc7230#section-3.2.2
+        multiple Link headers are to be treated the same as additional
+        comma separated link-value entries as described in
+        https://tools.ietf.org/html/rfc5988#section-5
         """
         if (self._request_links is not None):
             return self._request_links
         self._request_links = dict()
-        links = self.request.headers.get_list('link')
-        if (len(links) > 1):
-            raise HTTPError(400, "Multiple Link headers in request")
-        elif (len(links) == 1):
-            for link in requests.utils.parse_header_links(links[0]):
+        link_headers = self.request.headers.get_list('link')
+        for link_header in link_headers:
+            for link in requests.utils.parse_header_links(link_header):
                 if ('rel' in link and 'url' in link):
                     rel = link['rel']
                     url = link['url']
