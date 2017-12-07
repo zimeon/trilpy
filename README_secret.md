@@ -42,7 +42,7 @@ Only BasicContainer implemented to any degree or included in testing.
 
 ### 4. [Resource Versioning](https://fcrepo.github.io/fcrepo-specification/#resource-versioning)
 
-Not implemented.
+Partial implementation.
 
 ### 5. [Resource Authorization](https://fcrepo.github.io/fcrepo-specification/#resource-authorization)
 
