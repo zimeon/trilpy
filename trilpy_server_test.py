@@ -321,49 +321,6 @@ class TestFedora(TCaseWithSetup):
             links = r.headers.get('Link')
             self.assertIn(container_type, links)
 
-    def test_fedora_3_2(self):
-        """Check support for PATCH."""
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                          data='''
-                               @prefix x: <http://example.org/> .
-                               x:simeon x:has x:pizza .
-                               ''')
-        self.assertEqual(r.status_code, 201)
-        uri = r.headers.get('Location')
-        self.assertTrue(uri)
-        # Any LDP-RS MUST support PATCH
-        r = requests.head(uri)
-        self.assertIn('PATCH', self.allows(r))
-        self.assertIn('application/sparql-update', self.parse_comma_list(r.headers.get('Accept-Patch')))
-        patch_data = '''
-                     PREFIX x: <http://example.org/>
-                     DELETE { ?s x:has ?o . }
-                     INSERT { ?s x:ate ?o . }
-                     WHERE { ?s x:has ?o . }
-                     '''
-        # Reject unsupported PATCH content type
-        r = requests.patch(uri,
-                           headers={'Content-Type': 'bad-type/for-patch'},
-                           data=patch_data)
-        self.assertEqual(r.status_code, 415)
-        # Accept valid patch
-        r = requests.patch(uri,
-                           headers={'Content-Type': 'application/sparql-update'},
-                           data=patch_data)
-        self.assertEqual(r.status_code, 200)
-        # Attempt to change containment triples
-        r = requests.patch(uri,
-                           headers={'Content-Type': 'application/sparql-update'},
-                           data='''
-                                PREFIX ldp: <http://www.w3.org/ns/ldp#>
-                                INSERT DATA { <%s> ldp:contains ldp:stuff . }
-                                ''' % (uri))
-        self.assertEqual(r.status_code, 409)
-        self.assertTrue(self.links_include(
-            r.headers.get('link'),
-            'http://www.w3.org/ns/ldp#constrainedBy'))
 
     def test_fedora_3_3_1(self):
         """Check handling of Digest header."""
@@ -378,7 +335,7 @@ class TestFedora(TCaseWithSetup):
         # FIXME - Add invalid digest for valid type
         # FIXME - Add valid digest for valid type
 
-    def test_fedora_3_4(self):
+    def test_fedora_3_6(self):
         """Check PUT and content model handling."""
         # LDPNR cannot be replaced with LDPRS, or LDPC types
         uri = self.post_ldpnr(data=b'I am an LDPNR, can only be replace with same')
@@ -394,8 +351,8 @@ class TestFedora(TCaseWithSetup):
                                       'If-Match': etag,
                                       'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
                              data='<http://ex.org/a> <http://ex.org/b> "xyz".')
-            self.assertEqual(r.status_code, 409)
-        # LDPRS or LDPS types cannot be replaced with LDPRS
+            self.assert_4xx_with_link_to_constraints(r, 409)
+        # LDPRS or LDPC types cannot be replaced with LDPMS
         for model in ['http://www.w3.org/ns/ldp#RDFSource',
                       'http://www.w3.org/ns/ldp#Container',
                       'http://www.w3.org/ns/ldp#BasicContainer',
@@ -415,7 +372,7 @@ class TestFedora(TCaseWithSetup):
                                       'If-Match': etag,
                                       'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
                              data='Not RDF')
-            self.assertEqual(r.status_code, 409)
+            self.assert_4xx_with_link_to_constraints(r, 409)
         # FIXME - Alsmot check incompatible LDPRS replacements
 
     def test_fedore_3_4_1(self):
@@ -455,6 +412,47 @@ class TestFedora(TCaseWithSetup):
         self.assertEqual(r.status_code, 204)
         r = requests.get(uri)
         self.assertEqual(r.content, new_data)
+
+    def test_fedora_3_7(self):
+        """Implementations MUST support PATCH."""
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                          data='''
+                               @prefix x: <http://example.org/> .
+                               x:simeon x:has x:pizza .
+                               ''')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        self.assertTrue(uri)
+        # Any LDP-RS MUST support PATCH
+        r = requests.head(uri)
+        self.assertIn('PATCH', self.allows(r))
+        self.assertIn('application/sparql-update', self.parse_comma_list(r.headers.get('Accept-Patch')))
+        patch_data = '''
+                     PREFIX x: <http://example.org/>
+                     DELETE { ?s x:has ?o . }
+                     INSERT { ?s x:ate ?o . }
+                     WHERE { ?s x:has ?o . }
+                     '''
+        # Reject unsupported PATCH content type
+        r = requests.patch(uri,
+                           headers={'Content-Type': 'bad-type/for-patch'},
+                           data=patch_data)
+        self.assertEqual(r.status_code, 415)
+        # Accept valid patch
+        r = requests.patch(uri,
+                           headers={'Content-Type': 'application/sparql-update'},
+                           data=patch_data)
+        self.assertEqual(r.status_code, 200)
+        # Attempt to change containment triples
+        r = requests.patch(uri,
+                           headers={'Content-Type': 'application/sparql-update'},
+                           data='''
+                                PREFIX ldp: <http://www.w3.org/ns/ldp#>
+                                INSERT DATA { <%s> ldp:contains ldp:stuff . }
+                                ''' % (uri))
+        self.assert_4xx_with_link_to_constraints(r, 409)
 
     def test_fedora_4_1_1_and_4(self):
         """Check request to create versioned resource.
