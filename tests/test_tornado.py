@@ -13,39 +13,48 @@ class TestAll(unittest.TestCase):
         h = LDPHandler(tornado.web.Application(), Mock())
         self.assertTrue(h)
 
-    def test20_request_ldp_type(self):
-        """Test LDPHandler.request_ldp_type."""
+    def test20_request_types(self):
+        """Test LDPHandler.request_types property."""
         h = LDPHandler(tornado.web.Application(), Mock())
         h.request.headers = Mock()
         h.request.headers.get_list = Mock(return_value=[])
-        self.assertEqual(h.request_ldp_type(), None)
-        h.request.headers.get_list = Mock(return_value=['a', 'b'])
-        self.assertRaises(HTTPError, h.request_ldp_type)
+        self.assertEqual(h.request_types, [])
+        h._request_links = None
         h.request.headers.get_list = Mock(return_value=['a'])
-        self.assertEqual(h.request_ldp_type(), None)
+        self.assertEqual(h.request_types, [])
+        h._request_links = None
         h.request.headers.get_list = Mock(return_value=['<bb>; rel="type"'])
+        self.assertEqual(h.request_types, ['bb'])
+        h._request_links = None
+        h.request.headers.get_list = Mock(return_value=['<cc>; rel="type", <dd>; rel="type", <ee>; rel="other", <ff>; rel="type"'])
+        self.assertEqual(h.request_types, ['cc', 'dd', 'ff'])
+
+    def test21_request_ldp_type(self):
+        """Test LDPHandler.request_ldp_type() method."""
+        h = LDPHandler(tornado.web.Application(), Mock())
+        h._request_links = {'type': ['bb']}
         self.assertEqual(h.request_ldp_type(), None)
-        h.request.headers.get_list = Mock(return_value=['<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'])
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#NonRDFSource']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#NonRDFSource')
-        h.request.headers.get_list = Mock(return_value=['<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type", <cc>; rel="type"'])
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#NonRDFSource', 'cc']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#NonRDFSource')
-        h.request.headers.get_list = Mock(return_value=['<dd>; rel="type", <http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'])
+        h._request_links = {'type': ['dd', 'http://www.w3.org/ns/ldp#NonRDFSource']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#NonRDFSource')
-        h.request.headers.get_list = Mock(return_value=['<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'])
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#RDFSource']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#RDFSource')
-        h.request.headers.get_list = Mock(return_value=['<http://www.w3.org/ns/ldp#RDFSource>; rel="type", '
-                                                        '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'])
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#RDFSource',
+                                     'http://www.w3.org/ns/ldp#NonRDFSource']}
         self.assertRaises(HTTPError, h.request_ldp_type)
-        h.request.headers.get_list = Mock(return_value=['<http://www.w3.org/ns/ldp#RDFSource>; rel="type", '
-                                                        '<http://www.w3.org/ns/ldp#Container>; rel="type"'])
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#RDFSource',
+                                     'http://www.w3.org/ns/ldp#Container']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#Container')
-        h.request.headers.get_list = Mock(return_value=['<http://www.w3.org/ns/ldp#BasicContainer>; rel="type", '
-                                                        '<http://www.w3.org/ns/ldp#Container>; rel="type"'])
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#BasicContainer',
+                                     'http://www.w3.org/ns/ldp#Container']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#BasicContainer')
-        h.request.headers.get_list = Mock(return_value=['<http://www.w3.org/ns/ldp#Container>; rel="type", '
-                                                        '<http://www.w3.org/ns/ldp#DirectContainer>; rel="type"'])
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#Container',
+                                     'http://www.w3.org/ns/ldp#DirectContainer']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#DirectContainer')
         # FIXME - Following should probably give HTTPError
-        h.request.headers.get_list = Mock(return_value=['<http://www.w3.org/ns/ldp#BasicContainer>; rel="type", '
-                                                        '<http://www.w3.org/ns/ldp#DirectContainer>; rel="type"'])
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#BasicContainer',
+                                     'http://www.w3.org/ns/ldp#DirectContainer']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#DirectContainer')

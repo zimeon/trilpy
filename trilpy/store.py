@@ -63,6 +63,13 @@ class Store(object):
             #    container.add_member(uri)
         return(uri)
 
+    def update(self, resource):
+        """Update content of resource in the store.
+
+        no-op in this model of an in-memory store.
+        """
+        pass
+
     def delete(self, uri):
         """Delete resource and record deletion. Return context of deleted resource.
 

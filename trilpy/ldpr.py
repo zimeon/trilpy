@@ -16,12 +16,32 @@ class LDPR(object):
 
         content is expected to be in bytes not unicode
         """
+        # LDP properties
         self.uri = uri
         self.content = content
         self.contained_in = None
         self.member_of = None
         self.acl = acl
+        # Fedora versioned resource properties
+        self.timemap = None
+        self.original = None
+        # Cache values
         self._etag = None
+
+    @property
+    def is_ldprv(self):
+        """True if this LDPR is an LDPRv, a versioned resource (Original Resource)."""
+        return(self.timemap is not None and self.original is None)
+
+    @property
+    def is_ldprm(self):
+        """True if this LDPR is an LDPRm, a Memento of a version resource (Memento)."""
+        return(self.timemap is not None and self.original is not None)
+
+    @property
+    def is_ldpcv(self):
+        """False, override in sub-class implementing LDPCv."""
+        return(False)
 
     @property
     def rdf_type(self):
