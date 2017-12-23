@@ -22,6 +22,8 @@ class LDPR(object):
         self.contained_in = None
         self.member_of = None
         self.acl = acl
+        self.describes = None
+        self.describedby = None
         # Fedora versioned resource properties
         self.timemap = None
         self.original = None

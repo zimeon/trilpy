@@ -15,11 +15,12 @@ class LDPNR(LDPR):
 
     type_label = 'LDPNR'
 
-    def __init__(self, uri=None, content=None, content_type=None):
+    def __init__(self, uri=None, content=None, content_type=None, describedby=None):
         """Initialize LDPNR."""
         super(LDPNR, self).__init__(uri)
         self.content = content
         self.content_type = content_type
+        self.describedby = describedby
 
     @property
     def rdf_types(self):

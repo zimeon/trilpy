@@ -78,12 +78,14 @@ class TCaseWithSetup(unittest.TestCase):
     def find_links(self, link_header, rel):
         """Find list of link values with given rel."""
         values = []
+        if (link_header is None):
+            return values
         for link in link_header.split(','):
             m = re.match(r'\s*<([^>]+)>\s*;\s*rel="([^"]+)"\s*', link)
             # print("## " + link + ' -- ' + str(m))
             if (m and m.group(2) == rel):
                 values.append(m.group(1))
-        return(values)
+        return values
 
     def links_include(self, link_header, rel, value=None):
         """True if link_header includes link with given rel and value.
@@ -333,6 +335,43 @@ class TestFedora(TCaseWithSetup):
         self.assertEqual(r.status_code, 400)
         # FIXME - Add invalid digest for valid type
         # FIXME - Add valid digest for valid type
+
+    def test_fedora_3_5_a(self):
+        """Check LDPC support for POST."""
+        pass
+
+    # 3_5_b - untestable
+    #
+    # The default interaction model that will be assigned when there is no
+    # explicit Link header in the request must be recorded in the constraints
+    # document referenced in the Link: rel="http://www.w3.org/ns/ldp#constrainedBy"
+    # header ([LDP] 4.2.1.6 clarification).
+
+    def test_fedora_3_5_c(self):
+        """Check creation of associated LDPRS on POST to create LDPNR.
+
+        LDP: 5.2.3.12 ...may...
+        If a LDP server creates this associated LDP-RS, it MUST indicate its location
+        in the response by adding a HTTP Link header with a context URI identifying
+        the newly created LDP-NR (instead of the effective request URI), a link relation
+        value of describedby, and a target URI identifying the associated LDP-RS resource
+        [RFC5988].
+        """
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': "text/plain",
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                          data="I am an LDPNR, must be describedby...")
+        self.assertEqual(r.status_code, 201)
+        ldpnr_uri = r.headers.get('Location')
+        self.assertTrue(ldpnr_uri)
+        link_header = r.headers.get('Link')
+        db_links = self.find_links(link_header, 'describedby')
+        self.assertGreaterEqual(len(db_links), 1)
+        # Same links from HEAD
+        r = requests.head(ldpnr_uri)
+        link_header2 = r.headers.get('Link')
+        db_links2 = self.find_links(link_header, 'describedby')
+        self.assertEqual(db_links, db_links2)
 
     def test_fedora_3_6(self):
         """Check PUT and content model handling."""

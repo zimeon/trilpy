@@ -49,14 +49,18 @@ class LDPRS(LDPR):
 
     rdf_patch_types = ['application/sparql-update']
 
-    def __init__(self, uri=None, content=None, **kwargs):
+    def __init__(self, uri=None, content=None, describes=None, **kwargs):
         """Initialize LDPRS as subclass of LDPR.
 
         Initial content may optionally be specified via an
         rdflib.Graph object.
+
+        If this LDPRS describes and LDPNR then the URI of the LDPNR
+        SHOULD be specified in the `describes` parameter.
         """
         super(LDPRS, self).__init__(uri, **kwargs)
         self.content = Graph() if (content is None) else content
+        self.describes = describes
 
     def __len__(self):
         """Number of content triples."""

@@ -90,6 +90,10 @@ class LDPHandler(tornado.web.RequestHandler):
                 self.set_header("Preference-Applied", "return=representation")
         self.add_links('type', resource.rdf_types)
         self.add_links('acl', [self.store.individual_acl(uri)])
+        if (resource.describes is not None):
+            self.add_links('describes', [resource.describes])
+        if (resource.describedby is not None):
+            self.add_links('describedby', [resource.describedby])
         if (resource.is_ldprv):
             self.add_links('timemap', [resource.timemap])
             self.add_links('original timegate', [resource.uri])
@@ -158,6 +162,7 @@ class LDPHandler(tornado.web.RequestHandler):
         new_path = self.uri_to_path(new_uri)
         self.set_header("Content-Type", "text/plain")
         self.set_header("Location", new_uri)
+        self.set_link_header()
         self.set_status(201)
         logging.debug("POST %s as %s in %s OK" %
                       (str(new_resource), new_uri, uri))
@@ -209,6 +214,7 @@ class LDPHandler(tornado.web.RequestHandler):
                 logging.debug("PUT Versioned request, timemap=%s" % (tm.uri))
                 resource.timemap = tm.uri
             self.store.update(resource)
+        self.set_link_header()
         self.set_status(204 if replace else 201)
         logging.debug("PUT %s to %s OK" % (str(resource), uri))
 
@@ -294,7 +300,13 @@ class LDPHandler(tornado.web.RequestHandler):
             else:
                 logging.debug("Request RDF: %d triples" % (len(r)))
         else:
+            # When an LDPNR is created, an LDPRS must also be created
+            # that it is Link rel="describedby"
             r = LDPNR(uri=uri, content=self.request.body, content_type=content_type)
+            rd = LDPRS(describes=r.uri)
+            self.store.add(rd, rd.uri)
+            r.describedby = rd.uri
+            self.add_links('describedby', [r.describedby])
         return(r)
 
     def patch(self):
@@ -565,8 +577,9 @@ class LDPHandler(tornado.web.RequestHandler):
 
     def set_link_header(self):
         """Add Link header with set of rel uris."""
-        logging.debug('Link: ' + ', '.join(self._links))
-        self.set_header('Link', ', '.join(self._links))
+        if (len(self._links) > 0):
+            logging.debug('Link: ' + ', '.join(self._links))
+            self.set_header('Link', ', '.join(self._links))
 
     def set_links(self, rel, uris):
         """Add Link headers with set of rel uris."""
