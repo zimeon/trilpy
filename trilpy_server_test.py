@@ -338,7 +338,18 @@ class TestFedora(TCaseWithSetup):
 
     def test_fedora_3_5_a(self):
         """Check LDPC support for POST."""
-        pass
+        for resource_type in ['http://www.w3.org/ns/ldp#RDFSource',
+                              'http://www.w3.org/ns/ldp#NonRDFSource',
+                              'http://www.w3.org/ns/ldp#BasicContainer']:
+            r = requests.post(self.rooturi,
+                              headers={'Content-Type': 'text/turtle',
+                                       'Link': '<' + resource_type + '>; rel="type"'},
+                              data='<http://ex.org/aaa> <http://ex.org/bbb> "zeebee".')
+            self.assertEqual(r.status_code, 201)
+            uri = r.headers.get('Location')
+            self.assertTrue(uri)
+            r = requests.head(uri)
+            self.assertEqual(r.status_code, 200)
 
     # 3_5_b - untestable
     #
