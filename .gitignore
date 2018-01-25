@@ -3,6 +3,7 @@
 .cache
 .eggs
 .coverage
+some_path
 build/
 dist/
 report/

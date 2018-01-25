@@ -4,3 +4,5 @@
 [![Coverage Status](https://coveralls.io/repos/github/zimeon/trilpy/badge.svg?branch=master)](https://coveralls.io/github/zimeon/trilpy?branch=master)
 
 This is currently a playpen to help me think about the [Fedora API Specification](https://github.com/fcrepo/fcrepo-specification) (and see [current editors' draft](https://fcrepo.github.io/fcrepo-specification/)). If it ever ends up being anything else then I'll probably update this readme.
+
+For now, if you are really keen, check out [the not-so-secret README](README_secret.md).

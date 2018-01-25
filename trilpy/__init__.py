@@ -11,7 +11,7 @@ from .acl import ACLR
 from .tornado import run
 from .namespace import LDP, ACL
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 if sys.version_info < (3, 3):
     raise Exception("Must use python 3.3 or greater (probably)!")

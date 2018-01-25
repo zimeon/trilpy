@@ -26,6 +26,7 @@ class TCaseWithSetup(unittest.TestCase):
     new_for_each_test = False
     run_ldp_tests = False
     skip_should = False
+    ldp_test_suite_jar = None
     digest = None
 
     @classmethod
@@ -215,7 +216,7 @@ class TCaseWithSetup(unittest.TestCase):
 
 
 class LDPTestSuite(TCaseWithSetup):
-    """TestLDPSuite class to run the Java LDP testsuite."""
+    """LDPTestSuite class to run the Java LDP testsuite."""
 
     def test_ldp_testsuite(self):
         """Run the standard LDP testsuite.
@@ -229,10 +230,30 @@ class LDPTestSuite(TCaseWithSetup):
         thus we allow 2 only to allow skips
         """
         base_uri = 'http://localhost:' + str(self.port)
-        p = run('java -jar ./vendor/ldp-testsuite-0.2.0-SNAPSHOT-shaded.jar --server %s '
-                '--includedGroups MUST SHOULD --excludedGroups MANUAL --basic'
-                % (base_uri), shell=True)
+        p = run('java -jar %s --server %s --includedGroups MUST SHOULD --excludedGroups MANUAL --basic'
+                % (self.ldp_test_suite_jar, base_uri), shell=True)
         self.assertEqual(p.returncode | 2, 2)  # allow skipped tests
+
+
+class FedoraAPITestSuite(TCaseWithSetup):
+    """FedoraAPITestSuite class to run the Java Fedora API testsuite.
+
+    See: https://github.com/fcrepo4-labs/Fedora-API-Test-Suite
+    """
+
+    def test_fedora_api_testsuite(self):
+        """Run the Fedora API testsuite.
+
+        FIXME - CURRENTLY IGNORES RESULTS AS trilpy DOES NOT EVEN NEARLY
+        PASS THESE TESTS.
+        """
+        if not self.failing:
+            self.skipTest("Skipping known failing test (use --failing to run)")
+        base_uri = 'http://localhost:' + str(self.port)
+        p = run('java -jar %s --host %s'
+                % (self.fedora_api_test_suite_jar, base_uri), shell=True)
+        self.assertEqual(p.returncode, 0,  # FIXME - seems to always give 0
+                         "Expected zero eturn code, got %s" % p.returncode)
 
 
 class TestLDP(TCaseWithSetup):
@@ -1042,6 +1063,14 @@ if __name__ == '__main__':
                         help="Digest type to test.")
     parser.add_argument('--skip-should', action='store_true',
                         help="Skip tests marked as SHOULD in TestLDP and TestFedora")
+    parser.add_argument('--failing', action='store_true',
+                        help="")
+    parser.add_argument('--ldp-test-suite-jar',
+                        default='./vendor/ldp-testsuite-0.2.0-SNAPSHOT-shaded.jar',
+                        help="Specify jar file for LDPTestSuite")
+    parser.add_argument('--fedora-api-test-suite-jar',
+                        default='./vendor/testSuite-1.0-SNAPSHOT-shaded.jar',
+                        help="Specify jar file for Fedora-API-Test-Suite")
     parser.add_argument('--VeryVerbose', '-V', action='store_true',
                         help="be verbose.")
     parser.add_argument('--help', '-h', action='store_true',
@@ -1050,6 +1079,9 @@ if __name__ == '__main__':
     TCaseWithSetup.port = opts.port
     TCaseWithSetup.digest = opts.digest
     TCaseWithSetup.skip_should = opts.skip_should
+    TCaseWithSetup.failing = opts.failing
+    TCaseWithSetup.ldp_test_suite_jar = opts.ldp_test_suite_jar
+    TCaseWithSetup.fedora_api_test_suite_jar = opts.fedora_api_test_suite_jar
     if (opts.rooturi):
         TCaseWithSetup.start_trilpy = False
         TCaseWithSetup.rooturi = opts.rooturi
