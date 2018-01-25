@@ -41,7 +41,7 @@ setup(
     author_email='simeon.warner@cornell.edu',
     packages=['trilpy'],
     package_data={'trilpy': ['static/*']},
-    scripts=['trilpy.py'],
+    scripts=['trilpy_server.py', 'trilpy_tests.py'],
     classifiers=["Development Status :: 2 - Pre-Alpha",
                  "Intended Audience :: Developers",
                  "Operating System :: OS Independent",

@@ -4,10 +4,10 @@
 
 ### [LDP](https://www.w3.org/TR/ldp/) and the LDP Test Suite
 
-Mostly done, requires more work around containers. Currently passes the [LDP Test Suite](https://w3c.github.io/ldp-testsuite/) with options `--includedGroups MUST SHOULD --excludedGroups MANUAL --basic`. Can run from `trilpy_server_test.py` with the following:
+Mostly done, requires more work around containers. Currently passes the [LDP Test Suite](https://w3c.github.io/ldp-testsuite/) with options `--includedGroups MUST SHOULD --excludedGroups MANUAL --basic`. Can run from `trilpy_tests.py` with the following:
 
 ```
-> python trilpy_server_test.py LDPTestSuite
+> python trilpy_tests.py LDPTestSuite
 ...
 ===============================================
 LDP Test Suite
@@ -57,16 +57,16 @@ Current implementation does this for all LDPR, not just LDPNR.
 Python 3.5.3
 ```
 
-After downloading from github, install dependencies and code with:
+After downloading from github, from the `trilpy` root directory install dependencies and code with:
 
 ```
-trilpy> python setup.py install
+> python setup.py install
 ```
 
 and then run with:
 
 ```
-> > ./trilpy.py 
+> trilpy_server.py
 INFO:root:Running trilpy on http://localhost:9999
 ``` 
 
@@ -85,9 +85,9 @@ where the output will be a log of accesses. From another window one can test by 
         ldp:Resource .
 ```
 
-See `trilpy.py -h` for help with possible options such as port, path to root container, and `-v` for more verbose logging.
+See `trilpy_server.py -h` for help with possible options such as port, path to root container, and `-v` for more verbose logging.
 
-**As currently implemented, `trilpy` simply stores resources in memory for the time it is running. Everything is lost on exit and attempts to store large resources might exhaust memory. It is merely a test implementation.**
+**As currently implemented, `trilpy_server.py` simply stores resources in memory for the time it is running. Everything is lost on exit and attempts to store large resources might exhaust memory. It is merely a test implementation.**
 
 ## Tests
 
@@ -100,7 +100,7 @@ To run unit tests:
 To run integration tests:
 
 ```
-> python trilpy_server_test.py
+> ./trilpy_tests.py
 ```
 
 The integration tests by default start a `trilpy` instance on port 9999 (can be controlled with `--port` option). By default, tests include the [LDP Test Suite](https://w3c.github.io/ldp-testsuite/) (see below), a local LDP test, and as set of local Fedora API tests.
@@ -108,13 +108,13 @@ The integration tests by default start a `trilpy` instance on port 9999 (can be 
 To run just the local Fedora API tests use:
 
 ```
-> ./trilpy_server_test.py TestFedora
+> ./trilpy_tests.py TestFedora
 ```
 
-or to run a specific test use the `Class.mathod` form (see methods in `trilpy_server_test.py`), e.g.:
+or to run a specific test use the `Class.mathod` form (see methods in `trilpy_tests.py`), e.g.:
 
 ```
-> ./trilpy_server_test.py TestFedora.test_fedora_3_7
+> ./trilpy_tests.py TestFedora.test_fedora_3_7
 ```
 
 ### LDP Test Suite
@@ -122,7 +122,7 @@ or to run a specific test use the `Class.mathod` form (see methods in `trilpy_se
 The integration tests normally run the  [LDP Test Suite](https://w3c.github.io/ldp-testsuite/). A version compiled for Java 8 is included in the `vendor` directory. This suite can be run on its own with:
 
 ```
-> ./trilpy_server_test.py LDPTestSuite
+> ./trilpy_tests.py LDPTestSuite
 ```
 
 ### Fedora API Test Suite
@@ -130,13 +130,13 @@ The integration tests normally run the  [LDP Test Suite](https://w3c.github.io/l
 The integration tests include support for running the [Fedora API Test Suite](https://github.com/fcrepo4-labs/Fedora-API-Test-Suite). A version compiled for Java 8 is included in the `vendor` directory. The normal set of integration tests skips this test suite because `trilpy` is quite some way from passing! This test suite can be run on its own with the following (the `--failing` flag avoids skipping it):
 
 ```
-> ./trilpy_server_test.py --failing FedoraAPITestSuite
+> ./trilpy_tests.py --failing FedoraAPITestSuite
 ```
 
 An alternate jar file may be specified with:
 
 ```
-> ./trilpy_server_test.py --failing --fedora-api-test-suite-jar some_path/testSuite-1.0-SNAPSHOT-shaded.jar LDPTestSuite
+> ./trilpy_tests.py --failing --fedora-api-test-suite-jar some-path/testSuite-1.0-SNAPSHOT-shaded.jar LDPTestSuite
 ```
 
 ## Related work

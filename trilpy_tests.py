@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Test trilpy by running on localhost."""
 import argparse
 import unittest
@@ -26,13 +26,15 @@ class TCaseWithSetup(unittest.TestCase):
     new_for_each_test = False
     run_ldp_tests = False
     skip_should = False
+    trilpy_path = None
     ldp_test_suite_jar = None
+    fedora_api_test_suite_jar = None
     digest = None
 
     @classmethod
     def _start_trilpy(cls):
         """Start trilpy."""
-        cls.proc = Popen(['/usr/bin/env', 'python', './trilpy.py',
+        cls.proc = Popen(['/usr/bin/env', 'python', cls.trilpy_path,
                           '-v', '-p', str(cls.port)])
         print("Started trilpy (pid=%d)" % (cls.proc.pid))
         for n in range(0, 20):
@@ -1054,7 +1056,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--rooturi', action='store', default=None,
-                        help="Use LDP at given rooturi rather than running trilpy")
+                        help="Use Fedora/LDP instance at given rooturi rather than running trilpy")
     parser.add_argument('--fresh', action='store_true',
                         help="Start trilpy fresh for each test (slow)")
     parser.add_argument('--port', type=int, default=9999,
@@ -1064,7 +1066,9 @@ if __name__ == '__main__':
     parser.add_argument('--skip-should', action='store_true',
                         help="Skip tests marked as SHOULD in TestLDP and TestFedora")
     parser.add_argument('--failing', action='store_true',
-                        help="")
+                        help="Include known failing tests which would otherwise be skipped")
+    parser.add_argument('--trilpy-path', default='./trilpy_server.py',
+                        help="Path to trilpy server executable")
     parser.add_argument('--ldp-test-suite-jar',
                         default='./vendor/ldp-testsuite-0.2.0-SNAPSHOT-shaded.jar',
                         help="Specify jar file for LDPTestSuite")
@@ -1080,6 +1084,7 @@ if __name__ == '__main__':
     TCaseWithSetup.digest = opts.digest
     TCaseWithSetup.skip_should = opts.skip_should
     TCaseWithSetup.failing = opts.failing
+    TCaseWithSetup.trilpy_path = opts.trilpy_path
     TCaseWithSetup.ldp_test_suite_jar = opts.ldp_test_suite_jar
     TCaseWithSetup.fedora_api_test_suite_jar = opts.fedora_api_test_suite_jar
     if (opts.rooturi):
