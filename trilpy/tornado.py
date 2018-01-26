@@ -51,7 +51,15 @@ class LDPHandler(tornado.web.RequestHandler):
 
     def initialize(self):
         """Set up place to accumulate links for Link header."""
-        logging.debug('_______________________________________')
+        logging.debug('___request____________________________')
+        logging.debug("%s %s" % (self.request.method, self.request.path))
+        try:
+            for header_name in self.request.headers:
+                for header in self.request.headers.get_list(header_name):
+                    logging.debug("%s: %s" % (header_name, header))
+        except:
+            pass  # FIXME - correct mock request object in test_tornado.py
+        logging.debug('___handling_&_response________________')
         # request parsing
         self._request_links = None  # values extracted from Link: rel=".."
         # response building
@@ -63,9 +71,7 @@ class LDPHandler(tornado.web.RequestHandler):
 
     def get(self, is_head=False):
         """GET or HEAD if is_head set True."""
-        path = self.request.path
-        uri = self.path_to_uri(path)
-        logging.debug("GET %s" % (path))
+        uri = self.path_to_uri(self.request.path)
         want_digest = self.check_want_digest()
         resource = self.from_store(uri)
         if (isinstance(resource, LDPNR)):
@@ -121,9 +127,7 @@ class LDPHandler(tornado.web.RequestHandler):
         Fedora: https://fcrepo.github.io/fcrepo-specification/#httpPOST
         LDP: https://www.w3.org/TR/ldp/#ldpr-HTTP_POST
         """
-        path = self.request.path
-        uri = self.path_to_uri(path)
-        logging.debug("POST %s" % (path))
+        uri = self.path_to_uri(self.request.path)
         resource = self.from_store(uri)
         if (resource.is_ldprm):
             raise HTTPError(405, "POST not supported on LDPRm/Memento")
@@ -176,9 +180,7 @@ class LDPHandler(tornado.web.RequestHandler):
         """
         if (not self.support_put):
             raise HTTPError(405, "PUT not supported")
-        path = self.request.path
-        uri = self.path_to_uri(path)
-        logging.debug("PUT %s" % (path))
+        uri = self.path_to_uri(self.request.path)
         # 5.2.4.2 LDP servers that allow LDPR creation via
         # PUT should not re-use URIs. => 409 if deleted
         if (uri in self.store.deleted):
@@ -313,9 +315,7 @@ class LDPHandler(tornado.web.RequestHandler):
         """HTTP PATCH."""
         if (not self.support_patch):
             raise HTTPError(405, "PATCH not supported")
-        path = self.request.path
-        uri = self.path_to_uri(path)
-        logging.debug("PATCH %s" % (path))
+        uri = self.path_to_uri(self.request.path)
         resource = self.from_store(uri)
         if (resource.is_ldprm):
             raise HTTPError(405, "PATCH not supported on LDPRm/Memento")
@@ -341,9 +341,7 @@ class LDPHandler(tornado.web.RequestHandler):
         """
         if (not self.support_delete):
             raise HTTPError(405, "DELETE not supported")
-        path = self.request.path
-        uri = self.path_to_uri(path)
-        logging.debug("DELETE %s" % (path))
+        uri = self.path_to_uri(self.request.path)
         resource = self.from_store(uri)  # handles 404/410 if not present
         if (resource.is_ldpcv):
             # Remove versioning from original, remove Memento
@@ -364,14 +362,12 @@ class LDPHandler(tornado.web.RequestHandler):
         with extensions beyond
         <https://tools.ietf.org/html/rfc7231#section-4.3.7>
         """
-        path = self.request.path
-        uri = self.path_to_uri(path)
-        logging.debug("OPTIONS %s" % (path))
-        if (path == '*'):
+        if (self.request.path == '*'):
             # Server-wide options per RFC7231
             pass
         else:
             # Specific resource
+            uri = self.path_to_uri(self.request.path)
             resource = self.from_store(uri)
             self.add_links('type', resource.rdf_type_uris)
             self.set_link_header()
