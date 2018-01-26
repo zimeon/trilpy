@@ -16,7 +16,7 @@ Total tests run: 78, Failures: 0, Skips: 21
 ...
 ```
 
-This relies up a Java 8 compiled copy of the LDP Test Suite in the `vendor` directory, and the location may be overridden with with `--ldp-test-suite-jar` option.
+This relies up a Java 8 compiled copy of the LDP Test Suite in the [`vendor`](vendor) directory, and the location may be overridden with with `--ldp-test-suite-jar` option.
 
 ### Fedora API Section 3. [Resource Management](https://fcrepo.github.io/fcrepo-specification/#resource-management)
 
@@ -138,6 +138,8 @@ An alternate jar file may be specified with:
 ```
 > ./trilpy_tests.py --failing --fedora-api-test-suite-jar some-path/testSuite-1.0-SNAPSHOT-shaded.jar LDPTestSuite
 ```
+
+See also notes about [running the Fedora API Test Suite stand-alone](../docs/fedora_api_test_suite.md).
 
 ## Related work
 
