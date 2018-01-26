@@ -139,7 +139,7 @@ An alternate jar file may be specified with:
 > ./trilpy_tests.py --failing --fedora-api-test-suite-jar some-path/testSuite-1.0-SNAPSHOT-shaded.jar LDPTestSuite
 ```
 
-See also notes about [running the Fedora API Test Suite stand-alone](../docs/fedora_api_test_suite.md).
+See also notes about [running the Fedora API Test Suite stand-alone](docs/fedora_api_test_suite.md).
 
 ## Related work
 
