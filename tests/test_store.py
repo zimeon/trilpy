@@ -63,7 +63,7 @@ class TestAll(unittest.TestCase):
         """Test URI generation."""
         s = Store('http://x.o/')
         self.assertEqual(s._get_uri('http://x.o/a/', 'b'), 'http://x.o/a/b')
-        self.assertEqual(s._get_uri('http://x.o/a/anything', 'b'), 'http://x.o/a/b')
+        self.assertEqual(s._get_uri('http://x.o/a', 'b'), 'http://x.o/a/b')
         s.add(LDPR(), uri='http://x.o/a/c')
         self.assertNotEqual(s._get_uri('http://x.o/a/', 'c'), 'a/c')  # can't have same again
         # With no inputs we get a number on the base_uri

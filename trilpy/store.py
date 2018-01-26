@@ -143,7 +143,8 @@ class Store(object):
         with slug as the final path element.
         """
         if (context is not None and slug is not None):
-            uri = urljoin(context, slug)
+            # Add trailing slash to 
+            uri = urljoin(context + '/', slug)
             if (uri not in self._resources and
                     uri not in self.deleted):
                 return(uri)
