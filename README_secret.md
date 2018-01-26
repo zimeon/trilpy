@@ -119,7 +119,7 @@ or to run a specific test use the `Class.mathod` form (see methods in `trilpy_te
 
 ### LDP Test Suite
 
-The integration tests normally run the  [LDP Test Suite](https://w3c.github.io/ldp-testsuite/). A version compiled for Java 8 is included in the `vendor` directory. This suite can be run on its own with:
+The integration tests normally run the  [LDP Test Suite](https://w3c.github.io/ldp-testsuite/). A version compiled for Java 8 is included in the [`vendor`](vendor) directory. This suite can be run on its own with:
 
 ```
 > ./trilpy_tests.py LDPTestSuite
@@ -127,7 +127,7 @@ The integration tests normally run the  [LDP Test Suite](https://w3c.github.io/l
 
 ### Fedora API Test Suite
 
-The integration tests include support for running the [Fedora API Test Suite](https://github.com/fcrepo4-labs/Fedora-API-Test-Suite). A version compiled for Java 8 is included in the `vendor` directory. The normal set of integration tests skips this test suite because `trilpy` is quite some way from passing! This test suite can be run on its own with the following (the `--failing` flag avoids skipping it):
+The integration tests include support for running the [Fedora API Test Suite](https://github.com/fcrepo4-labs/Fedora-API-Test-Suite). A version compiled for Java 8 is included in the [`vendor`](vendor) directory. The normal set of integration tests skips this test suite because `trilpy` is quite some way from passing! This test suite can be run on its own with the following (the `--failing` flag avoids skipping it):
 
 ```
 > ./trilpy_tests.py --failing FedoraAPITestSuite

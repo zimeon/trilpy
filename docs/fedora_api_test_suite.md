@@ -22,7 +22,7 @@ and then in a separate window run the test suite:
 
 ===============================================
 ldptest
-Total tests run: 51, Failures: 47, Skips: 0
+Total tests run: 51, Failures: 41, Skips: 2
 ===============================================
 
 Writing HTML results:
@@ -37,10 +37,13 @@ In order to use `http://localhost:8080/root` as the root container, run `trilpy.
 
 ```
 > trilpy_server.py -v --port 8080 --root-container=root
+INFO:root:Running trilpy on http://localhost:8080
+...
 ```
 
 and the correspondig setup for the test suite is:
 
 ```
 > java -jar target/testSuite-1.0-SNAPSHOT-shaded.jar --host http://localhost:8080/root
+...
 ```
