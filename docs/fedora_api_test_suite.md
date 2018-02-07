@@ -22,7 +22,7 @@ and then in a separate window run the test suite:
 
 ===============================================
 ldptest
-Total tests run: 51, Failures: 41, Skips: 2
+Total tests run: 63, Failures: 59, Skips: 0
 ===============================================
 
 Writing HTML results:

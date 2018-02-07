@@ -252,10 +252,10 @@ class FedoraAPITestSuite(TCaseWithSetup):
         if not self.failing:
             self.skipTest("Skipping known failing test (use --failing to run)")
         base_uri = 'http://localhost:' + str(self.port)
-        p = run('java -jar %s --host %s'
+        p = run('java -jar %s --baseurl %s'
                 % (self.fedora_api_test_suite_jar, base_uri), shell=True)
         self.assertEqual(p.returncode, 0,  # FIXME - seems to always give 0
-                         "Expected zero eturn code, got %s" % p.returncode)
+                         "Expected zero return code, got %s" % p.returncode)
 
 
 class TestLDP(TCaseWithSetup):
