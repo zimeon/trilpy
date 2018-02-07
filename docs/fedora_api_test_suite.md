@@ -2,7 +2,7 @@
 
 This page discusses running the [Fedora API Test Suite](https://github.com/fcrepo4-labs/Fedora-API-Test-Suite) against `trilpy` using stand-alone processes. See also notes about [running the Fedora API Test Suite from the integration tests](../README_secret.md#fedora-api-test-suite).
 
-## Default URI for `trlipy`
+## Default URI for `trilpy`
 
 Run `trilpy` with:
 
