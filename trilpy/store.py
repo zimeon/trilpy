@@ -2,6 +2,9 @@
 
 import logging
 from urllib.parse import urljoin
+from rdflib import Graph, URIRef
+
+from .ldprs import LDPRS
 
 
 class KeyDeleted(KeyError):
@@ -96,6 +99,21 @@ class Store(object):
             self.deleted.add(uri)
         return context
 
+    def object_references(self, uri):
+        """Graph of triples in store that refer to object uri.
+
+        FIXME - This is SPECTACULARLY inefficient! Does a simple
+        search over all triples in all LDPRS objects looking for
+        for object uri.
+        """
+        g = Graph()
+        triple_pattern = (None, None, URIRef(uri))
+        for r_uri, resource in self._resources.items():
+            if (isinstance(resource, LDPRS)):
+                for (s, p, o) in resource.triples(triple_pattern):
+                    g.add((s, p, o))
+        return g
+
     def acl(self, uri, depth=0):
         """ACL URI for the ACL controlling access to uri.
 
@@ -143,7 +161,7 @@ class Store(object):
         with slug as the final path element.
         """
         if (context is not None and slug is not None):
-            # Add trailing slash to 
+            # Add trailing slash to context just in case, // tidied by urljoin
             uri = urljoin(context + '/', slug)
             if (uri not in self._resources and
                     uri not in self.deleted):

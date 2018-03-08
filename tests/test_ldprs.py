@@ -104,13 +104,19 @@ class TestAll(unittest.TestCase):
         self.assertIn('ldp:RDFSource', s)
         self.assertIn('ldp:Resource', s)
         self.assertIn('"LITERAL"', s)
-        #
+        # Test omits
         s = r.serialize(omits=['content'])
         self.assertIn('ldprs', s)  # might prefix or not
         self.assertNotIn('some_type', s)  # might prefix or not
         self.assertIn('ldp:RDFSource', s)
         self.assertIn('ldp:Resource', s)
         self.assertNotIn('"LITERAL"', s)
+        self.assertNotIn('"Wombat"', s)
+        # Test extra
+        eg = Graph()
+        eg.add((URIRef('info:Happy'), URIRef('info:Lazy'), Literal('Wombat')))
+        s = r.serialize(extra=eg)
+        self.assertIn('"Wombat"', s)
 
     def test07_add_server_managed_triples(self):
         """Test addition of server manages triples to graph."""
@@ -146,7 +152,24 @@ class TestAll(unittest.TestCase):
         ct = list(LDPRS().containment_triples())
         self.assertEqual(ct, [])
 
-    def test11_compute_etag(self):
+    def test11_triples(self):
+        """Test triples()."""
+        r = LDPRS()
+        g = list(r.triples((None, None, URIRef('info:aaa'))))
+        self.assertEqual(len(g), 0)
+        r.parse(b'<info:bbb> <info:bbb> <info:aaa>.')
+        r.parse(b'<info:ccc> <info:ccc> "info:bbb".')  # not a URI ref!
+        g = list(r.triples((None, None, URIRef('info:aaa'))))
+        self.assertEqual(len(g), 1)
+        self.assertEqual(g[0], (URIRef('info:bbb'), URIRef('info:bbb'), URIRef('info:aaa')))
+        g = list(r.triples((None, None, URIRef('info:bbb'))))
+        self.assertEqual(len(g), 0)
+        r.parse(b'<http://ex.org/a> <http://ex.org/b> <info:bbb>.')
+        g = list(r.triples((None, None, URIRef('info:bbb'))))
+        self.assertEqual(len(g), 1)
+        self.assertEqual(g[0], (URIRef('http://ex.org/a'), URIRef('http://ex.org/b'), URIRef('info:bbb')))
+
+    def test12_compute_etag(self):
         """Test computation of etag."""
         r = LDPRS()
         self.assertEqual(r._compute_etag(), 'W/"d41d8cd98f00b204e9800998ecf8427e"')

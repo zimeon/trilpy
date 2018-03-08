@@ -86,7 +86,25 @@ class TestAll(unittest.TestCase):
         s[uri].acl = 'the_acl'
         self.assertEqual(s.individual_acl(uri), 'the_acl')
 
-    def test08_acl(self):
+    def test08_object_references(self):
+        """Test object_references()."""
+        s = Store('http://x.o/')
+        r1 = LDPRS()
+        r1.parse(b'<http://ex.org/a1> <http://ex.org/b> <http://ex.org/c1>.')
+        s.add(r1, uri='http://ex.org/r1')
+        r2 = LDPRS()
+        r2.parse(b'<http://ex.org/a2> <http://ex.org/b> <http://ex.org/c2>.')
+        s.add(r2, uri='http://ex.org/r2')
+        r3 = LDPRS()
+        r3.parse(b'<http://ex.org/a3> <http://ex.org/b> <http://ex.org/c1>.')
+        s.add(r3, uri='http://ex.org/r3')
+        g = set(s.object_references('http://ex.org/c1'))
+        self.assertEqual(len(g), 2)
+        self.assertEqual(g,
+                         set([(URIRef('http://ex.org/a1'), URIRef('http://ex.org/b'), URIRef('http://ex.org/c1')),
+                              (URIRef('http://ex.org/a3'), URIRef('http://ex.org/b'), URIRef('http://ex.org/c1'))]))
+
+    def test09_acl(self):
         """Test location of effective ACL."""
         s = Store('http://x.o/')
         # resource has no acl

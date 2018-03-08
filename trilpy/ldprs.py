@@ -130,8 +130,8 @@ class LDPRS(LDPR):
         if (count > 1):
             raise Exception("Conflicting container types specified.")
         elif (count == 1):
-            return(last)
-        return(default)
+            return last
+        return default
 
     def _get_types(self, context):
         """Set of rdf:type properties of context resource.
@@ -144,10 +144,10 @@ class LDPRS(LDPR):
         for (s, p, o) in self.content.triples((URIRef(context), RDF.type, None)):
             types.add(o)
             logging.debug("type: %s" % (str(o)))
-        return(types)
+        return types
 
     def extract_containment_triples(self, content=None):
-        """Remove and return set of containment triples from content.
+        """Extract and return set of containment triples from content.
 
         If content is not specified then modify self.content.
 
@@ -160,9 +160,9 @@ class LDPRS(LDPR):
         for (s, p, o) in content.triples((None, LDP.contains, None)):
             ctriples.add((s, p, o))
             content.remove((s, p, o))
-        return(ctriples)
+        return ctriples
 
-    def serialize(self, content_type='text/turtle', omits=None):
+    def serialize(self, content_type='text/turtle', omits=None, extra=None):
         """Serialize this resource in given format.
 
         We also add in certain server managed triples required
@@ -175,11 +175,13 @@ class LDPRS(LDPR):
         graph.bind('ldp', LDP)
         if (omits is None or 'content' not in omits):
             graph += self.content
+        if extra is not None:
+            graph += extra
         self.add_server_managed_triples(graph, omits)
-        return(graph.serialize(
+        return graph.serialize(
             format=self._media_to_rdflib_type(content_type),
             context="",
-            indent=2).decode('utf-8'))
+            indent=2).decode('utf-8')
 
     def add_server_managed_triples(self, graph, omits=None):
         """Add server managed RDF triples to graph."""
@@ -194,7 +196,7 @@ class LDPRS(LDPR):
         """Graph of RDF triples that would be added from the server."""
         g = Graph()
         self.add_server_managed_triples(g)
-        return(g)
+        return g
 
     def add_containment_triples(self, graph):
         """Add containment triples to graph."""
@@ -203,17 +205,25 @@ class LDPRS(LDPR):
 
     def containment_triples(self):
         """Generator for containment triples (empty for plain LDPRS)."""
-        return([])
+        return []
+
+    def triples(self, triple_pattern):
+        """Iterator over triples in LDPRS content matching triple pattern.
+
+        Provides interface to rdflib Graph.triples() method over the RDF
+        content of this LDPRS.
+        """
+        return self.content.triples(triple_pattern)
 
     @property
     def rdf_types(self):
         """List of RDF types for this RDF source."""
-        return([LDP.RDFSource, LDP.Resource])
+        return [LDP.RDFSource, LDP.Resource]
 
     def _media_to_rdflib_type(self, content_type):
         """Get rdflib type from mime/media content_type."""
         try:
-            return(self.media_to_rdflib_type[content_type])
+            return self.media_to_rdflib_type[content_type]
         except:
             raise Exception("Unknown RDF content type " + content_type)
 
@@ -239,4 +249,4 @@ class LDPRS(LDPR):
                          ("_:BNODE" if isinstance(o, BNode) else o.n3()))
         s = '\n'.join(sorted(lines))
         h = hashlib.md5(s.encode('utf-8')).hexdigest()
-        return('W/"' + h + '"')
+        return 'W/"' + h + '"'

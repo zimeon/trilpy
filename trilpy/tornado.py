@@ -87,7 +87,14 @@ class LDPHandler(tornado.web.RequestHandler):
                 self.request.headers.get_list('Prefer'))
             # logging.debug("Prefer: " + str(self.request.headers.get_list('Prefer')))
             logging.debug("Omits: " + str(omits))
-            content = resource.serialize(content_type, omits)
+            # Is there a Prefer InboundReferences header?
+            PIR = 'http://fedora.info/definitions/fcrepo#PreferInboundReferences'
+            ir_graph = None
+            if (PIR in self.request.headers.get_list('Prefer')):
+                ir_graph = self.store.object_references(uri)
+                logging.debug("PreferInboundReferences, adding %d triples referencing %s" % (len(ir_graph), uri))
+                self.set_header("Preference-Applied", PIR)
+            content = resource.serialize(content_type, omits, extra=ir_graph)
             if (len(resource) < 20):
                 logging.debug("RDF response:\n" + content)
             else:

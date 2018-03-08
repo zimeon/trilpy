@@ -21,7 +21,7 @@ class TCaseWithSetup(unittest.TestCase):
     """
 
     port = 9999
-    rooturi = 'http://localhost:' + str(port) + '/'
+    rooturi = 'http://localhost:' + str(port)  # + '/'
     start_trilpy = True
     new_for_each_test = False
     run_ldp_tests = False
@@ -345,6 +345,28 @@ class TestFedora(TCaseWithSetup):
             r = requests.head(uri)
             links = r.headers.get('Link')
             self.assertIn(container_type, links)
+
+    def test_fedora_3_2_1(self):
+        """Test additional PreferInboundReferences value of Prefer."""
+        if self.skip_should:
+            return
+        pir = 'http://fedora.info/definitions/fcrepo#PreferInboundReferences'
+        # Make new resource with reference to rooturi
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                          data='<http://ex.org/adf> <http://ex.org/bnm> <' + self.rooturi + '>.')
+        self.assertEqual(r.status_code, 201)
+        # Request rooturi with inbound references
+        r = requests.get(self.rooturi,
+                         headers={'Prefer': pir})
+        g = Graph()
+        g.parse(format='turtle', data=r.content)
+        self.assertIn((URIRef('http://ex.org/adf'), URIRef('http://ex.org/bnm'), URIRef(self.rooturi)), g)
+        # Note that the requests package may combine header with commas:
+        # http://docs.python-requests.org/en/master/user/quickstart/#response-headers
+        pa_headers = (r.headers.get('Preference-Applied') or '').split(',')
+        self.assertIn(pir, pa_headers)
 
     def test_fedora_3_3_1(self):
         """Check handling of Digest header."""

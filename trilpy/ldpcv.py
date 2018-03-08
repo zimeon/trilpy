@@ -33,7 +33,7 @@ class LDPCv(LDPC):
             tm.add_memento(contained, datetime)
         return tm
 
-    def serialize(self, content_type='text/turtle', omits=None):
+    def serialize(self, content_type='text/turtle', omits=None, extra=None):
         """Serialize this resource in given format.
 
         Adds understanding of content_type 'application/link-format'
@@ -42,4 +42,4 @@ class LDPCv(LDPC):
         if (content_type == 'application/link-format'):
             return self.timemap_object.serialize_link_format()
         else:
-            return super(LDPCv, self).serialize(content_type, omits)
+            return super(LDPCv, self).serialize(content_type, omits, extra)
