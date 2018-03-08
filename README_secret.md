@@ -20,11 +20,13 @@ This relies up a Java 8 compiled copy of the LDP Test Suite in the [`vendor`](ve
 
 ### Fedora API Section 3. [Resource Management](https://fcrepo.github.io/fcrepo-specification/#resource-management)
 
-Simple implementation of PATCH.
+3.1.1 - Only BasicContainer implemented to any degree or included in testing.
 
-Does not add all server managed triples to the output representations of LDPRS.
+3.2 - LDP - Does not add all server managed triples to the output representations of LDPRS.
 
-Only BasicContainer implemented to any degree or included in testing.
+3.2.1 - Supports `Prefer: http://fedora.info/definitions/fcrepo#PreferInboundReferences` albeit very inefficiently. Does not support `Prefer: http://www.w3.org/ns/oa#PreferContainedDescriptions`.
+
+3.7 - Simple implementation of PATCH.
 
 ### Fedora API Section 4. [Resource Versioning](https://fcrepo.github.io/fcrepo-specification/#resource-versioning)
 
@@ -40,7 +42,7 @@ Some implementation but out of data with spec draft, needs reworking.
 
 Not implemented at all.
 
-Since all interactions with stored data happen through `trilpy.store`, hooks to generate notifications likely go in there.
+Since all interactions with stored data happen through `trilpy.store`, hooks to generate notifications could likely be added in there.
 
 ### Fedora API Section 7. [Binary Fixity](https://fcrepo.github.io/fcrepo-specification/#binary-fixity)
 
@@ -136,7 +138,7 @@ The integration tests include support for running the [Fedora API Test Suite](ht
 An alternate jar file may be specified with:
 
 ```
-> ./trilpy_tests.py --failing --fedora-api-test-suite-jar some-path/testSuite-1.0-SNAPSHOT-shaded.jar LDPTestSuite
+> ./trilpy_tests.py --failing --fedora-api-test-suite-jar some-path/testSuite-1.0-SNAPSHOT-shaded.jar FedoraAPITestSuite
 ```
 
 See also notes about [running the Fedora API Test Suite stand-alone](docs/fedora_api_test_suite.md).
