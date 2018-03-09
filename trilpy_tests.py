@@ -252,8 +252,9 @@ class FedoraAPITestSuite(TCaseWithSetup):
         if not self.failing:
             self.skipTest("Skipping known failing test (use --failing to run)")
         base_uri = 'http://localhost:' + str(self.port)
-        p = run('java -jar %s --baseurl %s'
-                % (self.fedora_api_test_suite_jar, base_uri), shell=True)
+        p = run('java -jar %s --baseurl %s --user %s --password %s' %
+                (self.fedora_api_test_suite_jar, base_uri, self.user, self.password),
+                shell=True)
         self.assertEqual(p.returncode, 0,  # FIXME - seems to always give 0
                          "Expected zero return code, got %s" % p.returncode)
 
@@ -1101,6 +1102,10 @@ if __name__ == '__main__':
                         help="Start trilpy fresh for each test (slow)")
     parser.add_argument('--port', type=int, default=9999,
                         help="Start trilpy on port")
+    parser.add_argument('--user', action='store', default='testuser',
+                        help="User name for authentication tests.")
+    parser.add_argument('--password', action='store', default='testpass',
+                        help="Password to got with --user for authentication tests.")
     parser.add_argument('--digest', action='store', default='sha1',
                         help="Digest type to test.")
     parser.add_argument('--skip-should', action='store_true',
@@ -1121,6 +1126,8 @@ if __name__ == '__main__':
                         help="show this help message and exit")
     (opts, args) = parser.parse_known_args()
     TCaseWithSetup.port = opts.port
+    TCaseWithSetup.user = opts.user
+    TCaseWithSetup.password = opts.password
     TCaseWithSetup.digest = opts.digest
     TCaseWithSetup.skip_should = opts.skip_should
     TCaseWithSetup.failing = opts.failing

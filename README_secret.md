@@ -151,3 +151,4 @@ See also notes about [running the Fedora API Test Suite stand-alone](docs/fedora
   * https://w3c.github.io/ldp-testsuite/ - LDP Test Suite
   * https://github.com/fcrepo4-labs/Fedora-API-Test-Suite - Fedora API Test Suite that exercises the requirements in the Fedora API Specification indicating the degree of a server’s compliance with the specification.
   * https://github.com/rotated8/fedora-spec-testing - Test suite for Fedora5 implementation. Assumes a number of implementation specific behaviors (like assumption of `Content-Type` for POST so it is not specified in request, removal of assumed `fcr:tombstone` resources).
+  * https://github.com/scossu/lakesuperior - @scosso's Python implementation of the Fedora4 API
