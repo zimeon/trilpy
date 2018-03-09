@@ -877,6 +877,24 @@ class TestFedora(TCaseWithSetup):
             requests.delete(ldpnr_uri)
         self.assertNotEqual(acl_uris[0], acl_uris[1])
 
+    def test_fedora_5_5(self):
+        """Cross domain ACLs MAY be rejected, if so MUST be 4xx and constraints."""
+        r = requests.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type",'
+                                           '<http://example.org/external-acl>; rel="acl"'},
+                          data='')
+        if r.status_code == 201:
+            child_uri = r.headers.get('Location')
+            r = requests.head(child_uri)
+            acls = self.find_links(r.headers.get('link'), 'acl')
+            self.assertEqual(len(acls), 1)
+            self.assertEqual(acls[0], 'http://example.org/external-acl')
+            # Cleanup
+            r.delete(child_uri)
+        else:
+            self.assert_4xx_with_link_to_constraints(r)
+
     def test_fedora_5_6(self):
         """Check ACL inheritance."""
         # ACL for root
@@ -1063,7 +1081,7 @@ class TestTrilpy(TCaseWithSetup):
         self.assertIn('"USE_ME"', content_str)  # POST data used
         self.assert_ldpc_contains(ldpcv_uri, loc, "POSTed Memento is in LDPCv")
 
-    def test_trilpy_5_2(self):
+    def test_trilpy_5_5(self):
         """Cross domain ACLs not allowed => MUST be rejected with 4xx and constraints."""
         r = requests.post(self.rooturi,
                           headers={'Content-Type': 'text/turtle',

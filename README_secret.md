@@ -36,6 +36,9 @@ May later implement server managed version creation as a configuration option (m
 
 ### Fedora API Section 5. [Resource Authorization](https://fcrepo.github.io/fcrepo-specification/#resource-authorization)
 
+  * `trilpy` uses `.acl` extension on resource URI as location of individual ACL if none was specified on creation (can PUT to that to create an ACL)
+  * `trilpy` rejects create resources with non-local ACLs (4xx per <https://fcrepo.github.io/fcrepo-specification/#link-acl-on-create>)
+
 Some implementation but out of data with spec draft, needs reworking. 
 
 ### Fedora API Section 6. [Notifications](https://fcrepo.github.io/fcrepo-specification/#notifications)

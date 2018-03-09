@@ -133,7 +133,7 @@ class Store(object):
                 # https://github.com/fcrepo/fcrepo-specification/issues/163
                 return(self.acl_default)
         elif (depth == 0 or
-              self._resources[resource.acl].has_heritable_auths() or
+              self._resources[resource.acl].has_heritable_auths or
               resource.contained_in is None):
             return(resource.acl)
         # Go up inheritance hierarchy

@@ -41,3 +41,27 @@ class TestAll(unittest.TestCase):
         uriref1 = a.add_public_read()
         uriref2 = a.add_public_read()
         self.assertNotEqual(uriref1, uriref2)
+
+    def test04_authorizations(self):
+        """Test authorizations property."""
+        a = ACLR()
+        a.parse(b'@base <info:x>.'
+                b'<http://ex.org/a> a <http://www.w3.org/ns/auth/acl#Authorization>.'
+                b'<#1> a <http://www.w3.org/ns/auth/acl#Authorization>.'
+                b'<#2> <info:pred> <http://www.w3.org/ns/auth/acl#Authorization>.'  # not authz
+                b'<#3> a <http://www.w3.org/ns/auth/acl#SomethineElse>.')  # not authz
+        self.assertEqual(set(a.authorizations),
+                         set([URIRef('http://ex.org/a'), URIRef('info:x#1')]))
+
+    def test05_has_hertiable_auths(self):
+        """Test has_hertiable_auths property."""
+        a = ACLR()
+        self.assertFalse(a.has_heritable_auths)
+        a.parse(b'@base <info:x>.'
+                b'<#auth1> a <http://www.w3.org/ns/auth/acl#Authorization>;'
+                b'  <info:some_stuff> <>.')
+        self.assertFalse(a.has_heritable_auths)
+        a.parse(b'@base <info:x>.'
+                b'<#auth1> a <http://www.w3.org/ns/auth/acl#Authorization>;'
+                b'  <http://www.w3.org/ns/auth/acl#default> <>.')
+        self.assertTrue(a.has_heritable_auths)

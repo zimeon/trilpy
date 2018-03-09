@@ -49,15 +49,23 @@ class ACLR(LDPRS):
             self.content.add((auth, ACL.defaultForNew, acl_for))
         return(auth)
 
+    @property
+    def authorizations(self):
+        """Iterator over authorizations in this ACL."""
+        return self.content.subjects(RDF.type, ACL.Authorization)
+
+    @property
     def has_heritable_auths(self):
         """True if this ACL has heritable authorizations.
 
         The ACL Inheritance Algorithm algorithm requires following
-        the containment hierarchy up until "authorizations to inherit"
-        are found, as indicated by the ACL.defaultForNew predicate.
+        the containment hierarchy up until a resource with an
+        ACL is found. This ACL is then checked for authorizations
+        to inherit, as indicated by the ACL.default predicate.
         """
-        for s in self.content.subjects(ACL.defaultForNew, None):
-            return(True)
+        for authz in self.authorizations:
+            for s, p, o in self.content.triples((authz, ACL.default, None)):
+                return(True)
         return(False)
 
     def _get_new_hash_uriref(self):

@@ -1,5 +1,20 @@
 # Constraints document
 
-This is whether we should put rules for constraints
-regarding resource creation and link to this 
-with 'http://www.w3.org/ns/ldp#constrainedBy'.
+This document describes a number of constraints introduced as implementation choices
+for `trilpy`. Some of these may be configurable. Constraints are listed in relation
+to the section of the [LDP](https://www.w3.org/TR/ldp/) or
+[Fedora API](https://fcrepo.github.io/fcrepo-specification/) specifications
+where they are described.
+
+Requests rejected because of these constraints will include a `Link` header of the
+form:
+
+```
+Link: /constraints.txt; rel="http://www.w3.org/ns/ldp#constrainedBy"
+```
+
+## LDP Constraints
+
+## Fedora API Constraints
+
+  * Attempts to create resources with [Cross-Domain ACLs](https://fcrepo.github.io/fcrepo-specification/#cross-domain-acls) are rejected.
