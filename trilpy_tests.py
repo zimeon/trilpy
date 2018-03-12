@@ -180,14 +180,60 @@ class TCaseWithSetup(unittest.TestCase):
         else:
             return []
 
+    # Base HTTP methods from requests with auth added
+
+    def head(self, uri, auth=None, **kwargs):
+        """HEAD uri with auth."""
+        if (auth is None):
+            auth = (self.user, self.password)
+        return requests.head(uri, auth=auth, **kwargs)
+
+    def get(self, uri, auth=None, **kwargs):
+        """GET uri with auth."""
+        if (auth is None):
+            auth = (self.user, self.password)
+        return requests.get(uri, auth=auth, **kwargs)
+
+    def options(self, uri, auth=None, **kwargs):
+        """OPTIONS uri with auth."""
+        if (auth is None):
+            auth = (self.user, self.password)
+        return requests.options(uri, auth=auth, **kwargs)
+
+    def post(self, uri, auth=None, **kwargs):
+        """POST uri with auth."""
+        if (auth is None):
+            auth = (self.user, self.password)
+        return requests.post(uri, auth=auth, **kwargs)
+
+    def put(self, uri, auth=None, **kwargs):
+        """PUT uri with auth."""
+        if (auth is None):
+            auth = (self.user, self.password)
+        return requests.put(uri, auth=auth, **kwargs)
+
+    def patch(self, uri, auth=None, **kwargs):
+        """PATCH uri with auth."""
+        if (auth is None):
+            auth = (self.user, self.password)
+        return requests.patch(uri, auth=auth, **kwargs)
+
+    def delete(self, uri, auth=None, **kwargs):
+        """DELETE uri with auth."""
+        if (auth is None):
+            auth = (self.user, self.password)
+        return requests.delete(uri, auth=auth, **kwargs)
+
+    # Frequently used methods with tests
+
     def post_ldpnr(self, uri=None, data='', content_type='text/plain'):
         """POST to create an LDPNR, return location."""
         if (uri is None):
             uri = self.rooturi
-        r = requests.post(uri,
-                          headers={'Content-Type': content_type,
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
-                          data=data)
+        r = self.post(uri,
+                      headers={'Content-Type': content_type,
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                      data=data)
         self.assertEqual(r.status_code, 201)
         ldpnr_uri = r.headers.get('Location')
         self.assertTrue(ldpnr_uri)
@@ -203,15 +249,15 @@ class TCaseWithSetup(unittest.TestCase):
         """
         if (uri is None):
             uri = self.rooturi
-        r = requests.post(uri,
-                          headers={'Content-Type': content_type,
-                                   'Link': '<%s>; rel="type", '
-                                           '<http://mementoweb.org/ns#OriginalResource>; rel="type"' % model},
-                          data=data)
+        r = self.post(uri,
+                      headers={'Content-Type': content_type,
+                               'Link': '<%s>; rel="type", '
+                                       '<http://mementoweb.org/ns#OriginalResource>; rel="type"' % model},
+                      data=data)
         self.assertEqual(r.status_code, 201)
         ldprv_uri = r.headers.get('Location')
         self.assertTrue(ldprv_uri)
-        r = requests.head(ldprv_uri)
+        r = requests.head(ldprv_uri, auth=(self.user, self.password))
         link_header = r.headers.get('link')
         ldpcv_uri = self.find_links(link_header, 'timemap')[0]
         return(ldprv_uri, ldpcv_uri)
@@ -266,32 +312,32 @@ class TestLDP(TCaseWithSetup):
         """If-Match on ETag for PUT to replace."""
         url = urljoin(self.rooturi, '/' + str(uuid.uuid1()))
         # PUT object
-        r = requests.put(url,
-                         headers={'Content-Type': 'text/turtle'},
-                         data='<http://ex.org/a> <http://ex.org/b> "1".')
+        r = self.put(url,
+                     headers={'Content-Type': 'text/turtle'},
+                     data='<http://ex.org/a> <http://ex.org/b> "1".')
         self.assertEqual(r.status_code, 201)
         # Match
-        r = requests.get(url)
+        r = self.get(url)
         self.assertEqual(r.status_code, 200)
         etag = r.headers.get('etag')
         self.assertTrue(etag)
-        r = requests.put(url,
-                         headers={'If-Match': etag,
-                                  'Content-Type': 'text/turtle'},
-                         data='<http://ex.org/a> <http://ex.org/b> "2".')
+        r = self.put(url,
+                     headers={'If-Match': etag,
+                              'Content-Type': 'text/turtle'},
+                     data='<http://ex.org/a> <http://ex.org/b> "2".')
         self.assertEqual(r.status_code, 204)
         # Now mismatch
-        r = requests.get(url)
+        r = self.get(url)
         self.assertEqual(r.status_code, 200)
         etag = r.headers.get('etag')
         self.assertTrue(etag)
-        r = requests.put(url,
-                         headers={'If-Match': etag + 'XXX',
-                                  'Content-Type': 'text/turtle'},
-                         data='<http://ex.org/a> <http://ex.org/b> "3".')
+        r = self.put(url,
+                     headers={'If-Match': etag + 'XXX',
+                              'Content-Type': 'text/turtle'},
+                     data='<http://ex.org/a> <http://ex.org/b> "3".')
         self.assertEqual(r.status_code, 412)
         # Cleanup
-        r = requests.delete(url)
+        self.delete(url, auth=(self.user, self.password))
 
 
 class TestFedora(TCaseWithSetup):
@@ -303,15 +349,15 @@ class TestFedora(TCaseWithSetup):
         https://fcrepo.github.io/fcrepo-specification/#ldpnr-ixn-model
         """
         # POST Turtle object as LDR-NR
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
-                          data='<http://ex.org/a> <http://ex.org/b> "123".')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                      data='<http://ex.org/a> <http://ex.org/b> "123".')
         self.assertEqual(r.status_code, 201)
         uri = r.headers.get('Location')
         self.assertRegex(uri, self.rooturi)
         # HEAD to get etag and test type
-        r = requests.head(uri)
+        r = self.head(uri)
         etag = r.headers.get('etag')
         self.assertTrue(etag)
         self.assertEqual(r.headers.get('Content-Type'), 'text/turtle')
@@ -323,10 +369,10 @@ class TestFedora(TCaseWithSetup):
         self.assertNotIn('http://www.w3.org/ns/ldp#DirectContainer', links)
         self.assertNotIn('http://www.w3.org/ns/ldp#IndirectContainer', links)
         # As LDP-NR should be OK to replace with diff media type
-        r = requests.put(uri,
-                         headers={'If-Match': etag,
-                                  'Content-Type': 'text/stuff'},
-                         data='Hello there!')
+        r = self.put(uri,
+                     headers={'If-Match': etag,
+                              'Content-Type': 'text/stuff'},
+                     data='Hello there!')
         self.assertEqual(r.status_code, 204)
 
     def test_fedora_3_1_2(self):
@@ -336,14 +382,14 @@ class TestFedora(TCaseWithSetup):
         for container_type in ['http://www.w3.org/ns/ldp#BasicContainer',
                                'http://www.w3.org/ns/ldp#DirectContainer',
                                'http://www.w3.org/ns/ldp#IndirectContainer']:
-            r = requests.post(self.rooturi,
-                              headers={'Content-Type': 'text/turtle',
-                                       'Link': '<' + container_type + '>; rel="type"'},
-                              data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+            r = self.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<' + container_type + '>; rel="type"'},
+                          data='<http://ex.org/a> <http://ex.org/b> "xyz".')
             self.assertEqual(r.status_code, 201)
             uri = r.headers.get('Location')
             self.assertTrue(uri)
-            r = requests.head(uri)
+            r = self.head(uri)
             links = r.headers.get('Link')
             self.assertIn(container_type, links)
 
@@ -353,14 +399,14 @@ class TestFedora(TCaseWithSetup):
             return
         pir = 'http://fedora.info/definitions/fcrepo#PreferInboundReferences'
         # Make new resource with reference to rooturi
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                          data='<http://ex.org/adf> <http://ex.org/bnm> <' + self.rooturi + '>.')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                      data='<http://ex.org/adf> <http://ex.org/bnm> <' + self.rooturi + '>.')
         self.assertEqual(r.status_code, 201)
         # Request rooturi with inbound references
-        r = requests.get(self.rooturi,
-                         headers={'Prefer': pir})
+        r = self.get(self.rooturi,
+                     headers={'Prefer': pir})
         g = Graph()
         g.parse(format='turtle', data=r.content)
         self.assertIn((URIRef('http://ex.org/adf'), URIRef('http://ex.org/bnm'), URIRef(self.rooturi)), g)
@@ -373,11 +419,11 @@ class TestFedora(TCaseWithSetup):
         """Check handling of Digest header."""
         if (not self.digest):
             return()
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/plain',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
-                                   'Digest': 'SURELY-NOT-SUPPORTED-TYPE'},  # FIXME - Digest syntax??
-                          data='stuff')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/plain',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                               'Digest': 'SURELY-NOT-SUPPORTED-TYPE'},  # FIXME - Digest syntax??
+                      data='stuff')
         self.assertEqual(r.status_code, 400)
         # FIXME - Add invalid digest for valid type
         # FIXME - Add valid digest for valid type
@@ -387,14 +433,14 @@ class TestFedora(TCaseWithSetup):
         for resource_type in ['http://www.w3.org/ns/ldp#RDFSource',
                               'http://www.w3.org/ns/ldp#NonRDFSource',
                               'http://www.w3.org/ns/ldp#BasicContainer']:
-            r = requests.post(self.rooturi,
-                              headers={'Content-Type': 'text/turtle',
-                                       'Link': '<' + resource_type + '>; rel="type"'},
-                              data='<http://ex.org/aaa> <http://ex.org/bbb> "zeebee".')
+            r = self.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<' + resource_type + '>; rel="type"'},
+                          data='<http://ex.org/aaa> <http://ex.org/bbb> "zeebee".')
             self.assertEqual(r.status_code, 201)
             uri = r.headers.get('Location')
             self.assertTrue(uri)
-            r = requests.head(uri)
+            r = self.head(uri)
             self.assertEqual(r.status_code, 200)
 
     # 3_5_b - untestable
@@ -414,10 +460,10 @@ class TestFedora(TCaseWithSetup):
         value of describedby, and a target URI identifying the associated LDP-RS resource
         [RFC5988].
         """
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': "text/plain",
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
-                          data="I am an LDPNR, must be describedby...")
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': "text/plain",
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                      data="I am an LDPNR, must be describedby...")
         self.assertEqual(r.status_code, 201)
         ldpnr_uri = r.headers.get('Location')
         self.assertTrue(ldpnr_uri)
@@ -425,7 +471,7 @@ class TestFedora(TCaseWithSetup):
         db_links = self.find_links(link_header, 'describedby')
         self.assertGreaterEqual(len(db_links), 1)
         # Same links from HEAD
-        r = requests.head(ldpnr_uri)
+        r = self.head(ldpnr_uri)
         link_header2 = r.headers.get('Link')
         db_links2 = self.find_links(link_header, 'describedby')
         self.assertEqual(db_links, db_links2)
@@ -434,18 +480,18 @@ class TestFedora(TCaseWithSetup):
         """Check PUT and content model handling."""
         # LDPNR cannot be replaced with LDPRS, or LDPC types
         uri = self.post_ldpnr(data=b'I am an LDPNR, can only be replace with same')
-        r = requests.head(uri)
+        r = self.head(uri)
         etag = r.headers.get('etag')
         for model in ['http://www.w3.org/ns/ldp#RDFSource',
                       'http://www.w3.org/ns/ldp#Container',
                       'http://www.w3.org/ns/ldp#BasicContainer',
                       'http://www.w3.org/ns/ldp#DirectContainer',
                       'http://www.w3.org/ns/ldp#IndirectContainer']:
-            r = requests.put(uri,
-                             headers={'Content-Type': 'text/turtle',
-                                      'If-Match': etag,
-                                      'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                             data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+            r = self.put(uri,
+                         headers={'Content-Type': 'text/turtle',
+                                  'If-Match': etag,
+                                  'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                         data='<http://ex.org/a> <http://ex.org/b> "xyz".')
             self.assert_4xx_with_link_to_constraints(r, 409)
         # LDPRS or LDPC types cannot be replaced with LDPMS
         for model in ['http://www.w3.org/ns/ldp#RDFSource',
@@ -453,41 +499,41 @@ class TestFedora(TCaseWithSetup):
                       'http://www.w3.org/ns/ldp#BasicContainer',
                       'http://www.w3.org/ns/ldp#DirectContainer',
                       'http://www.w3.org/ns/ldp#IndirectContainer']:
-            r = requests.post(self.rooturi,
-                              headers={'Content-Type': 'text/turtle',
-                                       'Link': '<' + model + '>; rel="type"'},
-                              data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+            r = self.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<' + model + '>; rel="type"'},
+                          data='<http://ex.org/a> <http://ex.org/b> "xyz".')
             self.assertEqual(r.status_code, 201)
             uri = r.headers.get('Location')
             self.assertTrue(uri)
-            r = requests.head(uri)
+            r = self.head(uri)
             etag = r.headers.get('etag')
-            r = requests.put(uri,
-                             headers={'Content-Type': 'text/plain',
-                                      'If-Match': etag,
-                                      'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
-                             data='Not RDF')
+            r = self.put(uri,
+                         headers={'Content-Type': 'text/plain',
+                                  'If-Match': etag,
+                                  'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                         data='Not RDF')
             self.assert_4xx_with_link_to_constraints(r, 409)
         # FIXME - Alsmot check incompatible LDPRS replacements
 
     def test_fedore_3_4_1(self):
         """Check PUT to LDPRS to update triples."""
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                          data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                      data='<http://ex.org/a> <http://ex.org/b> "xyz".')
         self.assertEqual(r.status_code, 201)
         uri = r.headers.get('Location')
         self.assertTrue(uri)
-        r = requests.head(uri)
+        r = self.head(uri)
         etag = r.headers.get('etag')
-        r = requests.put(uri,
-                         headers={'Content-Type': 'text/turtle',
-                                  'If-Match': etag,
-                                  'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                         data='<http://ex.org/a> <http://ex.org/b> "ZYX".')
+        r = self.put(uri,
+                     headers={'Content-Type': 'text/turtle',
+                              'If-Match': etag,
+                              'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                     data='<http://ex.org/a> <http://ex.org/b> "ZYX".')
         self.assertEqual(r.status_code, 204)
-        r = requests.get(uri)
+        r = self.get(uri)
         g = Graph()
         g.parse(format='turtle', data=r.content)
         self.assertNotIn(Literal('xyz'), g.objects())
@@ -496,32 +542,32 @@ class TestFedora(TCaseWithSetup):
     def test_fedora_3_4_2(self):
         """Check LDPNR MUST support PUT to replace content."""
         uri = self.post_ldpnr(data=b'original data here')
-        r = requests.head(uri)
+        r = self.head(uri)
         etag = r.headers.get('etag')
         new_data = b'WOW! NEW DATA'
-        r = requests.put(uri,
-                         headers={'Content-Type': 'text/plain',
-                                  'If-Match': etag,
-                                  'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
-                         data=new_data)
+        r = self.put(uri,
+                     headers={'Content-Type': 'text/plain',
+                              'If-Match': etag,
+                              'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                     data=new_data)
         self.assertEqual(r.status_code, 204)
-        r = requests.get(uri)
+        r = self.get(uri)
         self.assertEqual(r.content, new_data)
 
     def test_fedora_3_7(self):
         """Check implementations MUST support PATCH."""
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                          data='''
-                               @prefix x: <http://example.org/> .
-                               x:simeon x:has x:pizza .
-                               ''')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                      data='''
+                           @prefix x: <http://example.org/> .
+                           x:simeon x:has x:pizza .
+                           ''')
         self.assertEqual(r.status_code, 201)
         uri = r.headers.get('Location')
         self.assertTrue(uri)
         # Any LDP-RS MUST support PATCH
-        r = requests.head(uri)
+        r = self.head(uri)
         self.assertIn('PATCH', self.allows(r))
         self.assertIn('application/sparql-update', self.parse_comma_list(r.headers.get('Accept-Patch')))
         patch_data = '''
@@ -531,22 +577,22 @@ class TestFedora(TCaseWithSetup):
                      WHERE { ?s x:has ?o . }
                      '''
         # Reject unsupported PATCH content type
-        r = requests.patch(uri,
-                           headers={'Content-Type': 'bad-type/for-patch'},
-                           data=patch_data)
+        r = self.patch(uri,
+                       headers={'Content-Type': 'bad-type/for-patch'},
+                       data=patch_data)
         self.assertEqual(r.status_code, 415)
         # Accept valid patch
-        r = requests.patch(uri,
-                           headers={'Content-Type': 'application/sparql-update'},
-                           data=patch_data)
+        r = self.patch(uri,
+                       headers={'Content-Type': 'application/sparql-update'},
+                       data=patch_data)
         self.assertEqual(r.status_code, 200)
         # Attempt to change containment triples
-        r = requests.patch(uri,
-                           headers={'Content-Type': 'application/sparql-update'},
-                           data='''
-                                PREFIX ldp: <http://www.w3.org/ns/ldp#>
-                                INSERT DATA { <%s> ldp:contains ldp:stuff . }
-                                ''' % (uri))
+        r = self.patch(uri,
+                       headers={'Content-Type': 'application/sparql-update'},
+                       data='''
+                            PREFIX ldp: <http://www.w3.org/ns/ldp#>
+                            INSERT DATA { <%s> ldp:contains ldp:stuff . }
+                            ''' % (uri))
         self.assert_4xx_with_link_to_constraints(r, 409)
 
     def test_fedora_4_1_1_and_4(self):
@@ -559,16 +605,16 @@ class TestFedora(TCaseWithSetup):
         for ldpr_type in ('http://www.w3.org/ns/ldp#RDFSource',
                           'http://www.w3.org/ns/ldp#BasicContainer',
                           'http://www.w3.org/ns/ldp#NonRDFSource'):
-            r = requests.post(self.rooturi,
-                              headers={'Content-Type': 'text/turtle',
-                                       'Link': '<%s>; rel="type", '
-                                               '<http://mementoweb.org/ns#OriginalResource>; rel="type"'
-                                               % ldpr_type},
-                              data='<http://ex.org/i> <http://ex.org/am_a> "%s".' % ldpr_type)
+            r = self.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<%s>; rel="type", '
+                                           '<http://mementoweb.org/ns#OriginalResource>; rel="type"'
+                                           % ldpr_type},
+                          data='<http://ex.org/i> <http://ex.org/am_a> "%s".' % ldpr_type)
             self.assertEqual(r.status_code, 201)
             uri = r.headers.get('Location')
             self.assertTrue(uri)
-            for method in (requests.head, requests.get):
+            for method in (self.head, self.get):
                 r = method(uri)
                 self.assertEqual(r.status_code, 200)
                 link_header = r.headers.get('link')
@@ -586,7 +632,7 @@ class TestFedora(TCaseWithSetup):
                 tm_uri = timemaps[0]
                 self.assertEqual(r.headers.get('vary'), 'Accept-Datetime')
             # and a version container LDPCv MUST be created ... 4.3.1 GET on LDPCv
-            for method in (requests.head, requests.get):
+            for method in (self.head, self.get):
                 r = method(tm_uri)
                 self.assertEqual(r.status_code, 200)
                 link_header = r.headers.get('link')
@@ -631,7 +677,7 @@ class TestFedora(TCaseWithSetup):
             ldprv_uri = response.info()['Location']
             conn.close()
             self.assertTrue(ldprv_uri)
-            r = requests.head(ldprv_uri)
+            r = self.head(ldprv_uri)
             self.assert_link_types_include(r, ['http://mementoweb.org/ns#OriginalResource',
                                                'http://www.w3.org/ns/ldp#NonRDFSource'])
 
@@ -640,25 +686,25 @@ class TestFedora(TCaseWithSetup):
         for ldpr_type in ('http://www.w3.org/ns/ldp#RDFSource',
                           'http://www.w3.org/ns/ldp#BasicContainer',
                           'http://www.w3.org/ns/ldp#NonRDFSource'):
-            r = requests.post(self.rooturi,
-                              headers={'Content-Type': 'text/turtle',
-                                       'Link': '<%s>; rel="type", '
-                                               '<http://mementoweb.org/ns#OriginalResource>; rel="type"'
-                                               % ldpr_type},
-                              data='<http://ex.org/4_1_2_i> <http://ex.org/am_a> "%s".' % ldpr_type)
+            r = self.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<%s>; rel="type", '
+                                           '<http://mementoweb.org/ns#OriginalResource>; rel="type"'
+                                           % ldpr_type},
+                          data='<http://ex.org/4_1_2_i> <http://ex.org/am_a> "%s".' % ldpr_type)
             self.assertEqual(r.status_code, 201)
             uri = r.headers.get('Location')
             self.assertTrue(uri)
-            r = requests.head(uri)
+            r = self.head(uri)
             etag = r.headers.get('etag')
             self.assertTrue(etag)
-            r = requests.put(uri,
-                             headers={'If-Match': etag,
-                                      'Content-Type': 'text/turtle',
-                                      'Link': '<%s>; rel="type"' % ldpr_type},
-                             data='<http://ex.org/4_1_2_i> <http://ex.org/am_still_a> "%s".' % ldpr_type)
+            r = self.put(uri,
+                         headers={'If-Match': etag,
+                                  'Content-Type': 'text/turtle',
+                                  'Link': '<%s>; rel="type"' % ldpr_type},
+                         data='<http://ex.org/4_1_2_i> <http://ex.org/am_still_a> "%s".' % ldpr_type)
             self.assertEqual(r.status_code, 204)
-            r = requests.get(uri)
+            r = self.get(uri)
             self.assertIn(b'am_still_a', r.content)  # sloppy check on updated content
 
     def test_fedora_4_2_x(self):
@@ -670,64 +716,64 @@ class TestFedora(TCaseWithSetup):
         for ldpr_type in ('http://www.w3.org/ns/ldp#RDFSource',
                           'http://www.w3.org/ns/ldp#BasicContainer',
                           'http://www.w3.org/ns/ldp#NonRDFSource'):
-            r = requests.post(self.rooturi,
-                              headers={'Content-Type': 'text/turtle',
-                                       'Link': '<%s>; rel="type", '
-                                               '<http://mementoweb.org/ns#OriginalResource>; rel="type"'
-                                               % ldpr_type},
-                              data='<http://ex.org/4_2_x_i> <http://ex.org/am_a> "%s".' % ldpr_type)
+            r = self.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<%s>; rel="type", '
+                                           '<http://mementoweb.org/ns#OriginalResource>; rel="type"'
+                                           % ldpr_type},
+                          data='<http://ex.org/4_2_x_i> <http://ex.org/am_a> "%s".' % ldpr_type)
             self.assertEqual(r.status_code, 201)
             uri = r.headers.get('Location')
             self.assertTrue(uri)
-            r = requests.head(uri)
+            r = self.head(uri)
             link_header = r.headers.get('link')
             tm_uri = self.find_links(link_header, 'timemap')[0]
             # Create LDPRm by POST to LPRCv/timemap
-            r = requests.post(tm_uri,
-                              headers={'Content-Type': 'text/turtle',
-                                       'Link': '<%s>; rel="type"' % ldpr_type,
-                                       'Memento-Datetime': 'Tue, 20 Jun 2000 10:11:12 GMT'},
-                              data='<http://ex.org/4_2_x_i> <http://ex.org/am_a_memento> "%s".' % ldpr_type)
+            r = self.post(tm_uri,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<%s>; rel="type"' % ldpr_type,
+                                   'Memento-Datetime': 'Tue, 20 Jun 2000 10:11:12 GMT'},
+                          data='<http://ex.org/4_2_x_i> <http://ex.org/am_a_memento> "%s".' % ldpr_type)
             self.assertEqual(r.status_code, 201)
             ldprm_uri = r.headers.get('Location')
             # 4.2.1 response to a GET request (and HEAD implied too) MUST include a
             # Link: <http://mementoweb.org/ns#Memento>; rel="type" header
-            for method in (requests.head, requests.get):
+            for method in (self.head, self.get):
                 r = method(ldprm_uri)
                 self.assertEqual(r.status_code, 200)
                 self.assert_link_types_include(r, ['http://mementoweb.org/ns#Memento'])
             # 4.2.2 response to an OPTIONS request MUST include Allow: GET, HEAD, OPTIONS
-            r = requests.options(ldprm_uri)
+            r = self.options(ldprm_uri)
             self.assertEqual(r.status_code, 200)
             self.assert_allow_includes(r, ('GET', 'HEAD', 'OPTIONS'))
             supports_ldprm_delete = 'DELETE' in self.allows(r)
             # 4.2.3 implementation MUST NOT support POST for LDPRms
-            r = requests.post(ldprm_uri,
-                              headers={'Content-Type': 'text/turtle',
-                                       'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                              data='<http://ex.org/4_2_3_i> <http://ex.org/am> "something".')
+            r = self.post(ldprm_uri,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                          data='<http://ex.org/4_2_3_i> <http://ex.org/am> "something".')
             self.assert_4xx(r.status_code)
             # 4.2.4 implementation MUST NOT support PATCH for LDPRms
-            r = requests.patch(ldprm_uri,
-                               headers={'Content-Type': 'text/turtle',
-                                        'Link': '<%s>; rel="type"' % ldpr_type},
-                               data='<http://ex.org/4_2_4_i> <http://ex.org/am> "something".')
+            r = self.patch(ldprm_uri,
+                           headers={'Content-Type': 'text/turtle',
+                                    'Link': '<%s>; rel="type"' % ldpr_type},
+                           data='<http://ex.org/4_2_4_i> <http://ex.org/am> "something".')
             self.assert_4xx(r.status_code)
             # 4.2.5 implementation MUST NOT support PUT for LDPRms
-            r = requests.patch(ldprm_uri,
-                               headers={'Content-Type': 'text/turtle',
-                                        'Link': '<%s>; rel="type"' % ldpr_type},
-                               data='<http://ex.org/4_2_5_i> <http://ex.org/am> "something".')
+            r = self.patch(ldprm_uri,
+                           headers={'Content-Type': 'text/turtle',
+                                    'Link': '<%s>; rel="type"' % ldpr_type},
+                           data='<http://ex.org/4_2_5_i> <http://ex.org/am> "something".')
             self.assert_4xx(r.status_code)
             # 4.2.6 implementation MAY support DELETE for LDPRms. If DELETE is supported,
             # the server is responsible for all behaviors implied by the LDP-containment
             # of the LDPRm.
             if (supports_ldprm_delete):
-                r = requests.delete(ldprm_uri)
+                r = self.delete(ldprm_uri)
                 self.assertEqual(r.status_code, 200)
                 # Check no longer included in LDPCv/TimeMap
-                r = requests.get(tm_uri,
-                                 headers={'Content-Type': 'text/turtle'})
+                r = self.get(tm_uri,
+                             headers={'Content-Type': 'text/turtle'})
                 g = Graph()
                 g.parse(format='turtle', data=r.content)
                 self.assertNotIn(URIRef(ldprm_uri), g.objects())
@@ -742,7 +788,7 @@ class TestFedora(TCaseWithSetup):
         """LDPCv GET and HEAD."""
         (ldprv_uri, ldpcv_uri) = self.post_ldprv(data='<http://ex.org/4_3_1> <http://ex.org/a> "OPTIONS Test".')
         # 4.3.1 GET on LDPCv
-        for method in (requests.head, requests.get):
+        for method in (self.head, self.get):
             # An LDPCv must respond to GET Accept: application/link-format as indicated
             # in [RFC7089] section 5 and specified in [RFC6690] section 7.3
             # --> test this and Turtle
@@ -770,7 +816,7 @@ class TestFedora(TCaseWithSetup):
                     accept_patch = r.headers.get('Accept-Patch')
                     self.assertNotEqual(accept_patch, None, 'Accept-Patch required if PATCH supported')
                     self.assertIn('application/sparql-update', self.parse_comma_list(accept_patch))
-                if (method == requests.get and content_type == 'application/link-format'):
+                if (method == self.get and content_type == 'application/link-format'):
                     # FIXME - need more tests for response format
                     self.assertRegex(r.content.decode('utf-8'),
                                      r'''^<''' + ldprv_uri + r'''>\s*;\s*rel="original''')
@@ -781,27 +827,27 @@ class TestFedora(TCaseWithSetup):
         """LDPCv OPTIONS."""
         # 4.3.2 ... MUST Allow: GET, HEAD, OPTIONS
         (ldprv_uri, ldpcv_uri) = self.post_ldprv(data='<http://ex.org/4_3_2> <http://ex.org/a> "OPTIONS Test".')
-        r = requests.options(ldpcv_uri)
+        r = self.options(ldpcv_uri)
         self.assert_allow_includes(r, ('GET', 'HEAD', 'OPTIONS'))
 
     def test_fedora_4_3_3(self):
         """LDPCv POST, if supported."""
         ldprv_data = '<http://ex.org/4_3_3> <http://ex.org/a> "POST Test".'
         (ldprv_uri, ldpcv_uri) = self.post_ldprv(data=ldprv_data)
-        r = requests.options(ldpcv_uri)
+        r = self.options(ldpcv_uri)
         if ('POST' not in self.allows(r)):
             self.skipTest("Implementation doesn't support POST to LDPCv")
         # a POST that does not contain a Memento-Datetime header should be understood
         # to create a new LDPRm contained by the LDPCv, reflecting the state of the
         # LDPRv at the time of the POST. Any request body must be ignored
-        r = requests.post(ldpcv_uri,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                          data='<http://ex.org/4_3_3a> <http://ex.org/a> "IGNORE_ME".')
+        r = self.post(ldpcv_uri,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                      data='<http://ex.org/4_3_3a> <http://ex.org/a> "IGNORE_ME".')
         # may be 4xx for not supported, else create with Location, ignore body
         if (r.status_code == 201):
             loc = r.headers.get('Location')
-            r = requests.get(loc)
+            r = self.get(loc)
             self.assertEqual(r.status_code, 200)
             content_str = r.content.decode('utf-8')
             self.assertIn('"POST Test"', content_str)  # LDPRv data
@@ -812,15 +858,15 @@ class TestFedora(TCaseWithSetup):
         # a POST with a Memento-Datetime header should be understood to create a new
         # LDPRm contained by the LDPCv, with the state given in the request body and
         # the datetime given in the Memento-Datetime request header
-        r = requests.post(ldpcv_uri,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"',
-                                   'Memento-Datetime': 'Fri, 7 Dec 2017 15:05:00 GMT'},
-                          data='<http://ex.org/4_3_3b> <http://ex.org/a> "USE_ME".')
+        r = self.post(ldpcv_uri,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"',
+                               'Memento-Datetime': 'Fri, 7 Dec 2017 15:05:00 GMT'},
+                      data='<http://ex.org/4_3_3b> <http://ex.org/a> "USE_ME".')
         # may be 4xx for not supported, else create with Location, ignore body
         if (r.status_code == 201):
             loc = r.headers.get('Location')
-            r = requests.get(loc)
+            r = self.get(loc)
             self.assertEqual(r.status_code, 200)
             content_str = r.content.decode('utf-8')
             self.assertNotIn('"POST Test"', content_str)  # LDPRv data overwritten
@@ -833,35 +879,35 @@ class TestFedora(TCaseWithSetup):
         """LDPCv DELETE, if supported."""
         ldprv_data = '<http://ex.org/4_3_3> <http://ex.org/a> "DELETE Test".'
         (ldprv_uri, ldpcv_uri) = self.post_ldprv(data=ldprv_data)
-        r = requests.options(ldpcv_uri)
+        r = self.options(ldpcv_uri)
         if ('DELETE' not in self.allows(r)):
             self.skipTest("Implementation doesn't support DELETE to LDPCv")
-        r = requests.head(ldprv_uri)
+        r = self.head(ldprv_uri)
         self.assert_link_types_include(r, ['http://mementoweb.org/ns#OriginalResource',
                                            'http://mementoweb.org/ns#TimeGate'])
-        r = requests.delete(ldpcv_uri)
+        r = self.delete(ldpcv_uri)
         self.assertIn(r.status_code, (200, 204))
-        r = requests.head(ldpcv_uri)
+        r = self.head(ldpcv_uri)
         self.assertIn(r.status_code, (404, 410))  # FIXME - tighter than LDP spec
         if (not self.skip_should):
-            r = requests.head(ldprv_uri)
+            r = self.head(ldprv_uri)
             self.assert_link_types_do_not_include(r, ['http://mementoweb.org/ns#OriginalResource',
                                                       'http://mementoweb.org/ns#TimeGate'])
 
     def test_fedora_5_1(self):
         """Check ACLs are LDP RDF Sources."""
-        r = requests.head(self.rooturi)
+        r = self.head(self.rooturi)
         self.assertEqual(r.status_code, 200)
         acls = self.find_links(r.headers.get('link'), 'acl')
         self.assertEqual(len(acls), 1)
-        r = requests.head(acls[0])
+        r = self.head(acls[0])
         self.assertEqual(r.status_code, 200)
         self.assert_link_types_include(r, ['http://www.w3.org/ns/ldp#RDFSource'])
 
     def test_fedora_5_3(self):
         """Check ACLs are discoverable via Link Headers."""
         # Check root has an ACL
-        r = requests.get(self.rooturi)
+        r = self.get(self.rooturi)
         self.assertEqual(r.status_code, 200)
         self.assertTrue(self.links_include(r.headers.get('link'), 'acl'))
         # Since the individual acl URI MUST be expressed for each resource, whether
@@ -870,36 +916,36 @@ class TestFedora(TCaseWithSetup):
         acl_uris = []
         for n in (1, 2):
             ldpnr_uri = self.post_ldpnr()
-            r = requests.head(ldpnr_uri)
+            r = self.head(ldpnr_uri)
             acls = self.find_links(r.headers.get('link'), 'acl')
             self.assertEqual(len(acls), 1, "Expect one ACL URI in Link header")
             acl_uris.append(acls[0])
             # Cleanup
-            requests.delete(ldpnr_uri)
+            self.delete(ldpnr_uri)
         self.assertNotEqual(acl_uris[0], acl_uris[1])
 
     def test_fedora_5_5(self):
         """Cross domain ACLs MAY be rejected, if so MUST be 4xx and constraints."""
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type",'
-                                           '<http://example.org/external-acl>; rel="acl"'},
-                          data='')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type",'
+                                       '<http://example.org/external-acl>; rel="acl"'},
+                      data='')
         if r.status_code == 201:
             child_uri = r.headers.get('Location')
-            r = requests.head(child_uri)
+            r = self.head(child_uri)
             acls = self.find_links(r.headers.get('link'), 'acl')
             self.assertEqual(len(acls), 1)
             self.assertEqual(acls[0], 'http://example.org/external-acl')
             # Cleanup
-            r.delete(child_uri)
+            self.delete(child_uri)
         else:
             self.assert_4xx_with_link_to_constraints(r)
 
     def test_fedora_5_6(self):
         """Check ACL inheritance."""
         # ACL for root
-        r = requests.head(self.rooturi)
+        r = self.head(self.rooturi)
         self.assertEqual(r.status_code, 200)
         acls = self.find_links(r.headers.get('link'), 'acl')
         self.assertEqual(len(acls), 1)
@@ -907,28 +953,28 @@ class TestFedora(TCaseWithSetup):
         # POST LDR-NR under root, expect to get new ACL
         child_uri = self.post_ldpnr(uri=self.rooturi, data='stuff')
         self.assertTrue(child_uri)
-        r = requests.head(child_uri)
+        r = self.head(child_uri)
         self.assertEqual(r.status_code, 200)
         acls = self.find_links(r.headers.get('link'), 'acl')
         self.assertEqual(len(acls), 1)
         self.assertNotEqual(acls[0], root_acl)
         self.assertNotEqual(acls[0], child_uri)
         # Cleanup
-        r = requests.delete(child_uri)
+        r = self.delete(child_uri)
         # Try two level POST
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'})
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'})
         self.assertEqual(r.status_code, 201)
         child_uri = r.headers.get('Location')
         self.assertTrue(child_uri)
-        r = requests.post(child_uri,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'})
+        r = self.post(child_uri,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'})
         self.assertEqual(r.status_code, 201)
         grandchild_uri = r.headers.get('Location')
         self.assertTrue(grandchild_uri)
-        r = requests.head(grandchild_uri)
+        r = self.head(grandchild_uri)
         self.assertEqual(r.status_code, 200)
         acls = self.find_links(r.headers.get('link'), 'acl')
         self.assertEqual(len(acls), 1)
@@ -939,8 +985,8 @@ class TestFedora(TCaseWithSetup):
         # FIXME - that has no heritable auths
         #
         # Cleanup
-        r = requests.delete(child_uri)
-        r = requests.delete(grandchild_uri)
+        r = self.delete(child_uri)
+        r = self.delete(grandchild_uri)
 
     def test_fedora_5_9(self):
         """Test ACL linking on resource creation."""
@@ -952,60 +998,60 @@ class TestFedora(TCaseWithSetup):
         # causing the request to fail must be described in a resource indicated by
         # a Link: rel="http://www.w3.org/ns/ldp#constrainedBy" response header,
         # following the pattern of [LDP] 4.2.1.6.
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                          data='')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                      data='')
 
     def test_fedora_7_2(self):
         """Test transmission fixity."""
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/plain',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
-                                   'Digest': 'sha=no-match'},
-                          data='hello')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/plain',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                               'Digest': 'sha=no-match'},
+                      data='hello')
         self.assertEqual(r.status_code, 400)
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/plain',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
-                                   'Digest': 'unknown=no-match'},
-                          data='hello')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/plain',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                               'Digest': 'unknown=no-match'},
+                      data='hello')
         self.assertEqual(r.status_code, 409)
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/plain',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
-                                   'Digest': 'sha=qvTGHdzF6KLavt4PO0gs2a6pQ00='},
-                          data='hello')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/plain',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                               'Digest': 'sha=qvTGHdzF6KLavt4PO0gs2a6pQ00='},
+                      data='hello')
         self.assertEqual(r.status_code, 201)
         uri = r.headers.get('Location')
-        r = requests.put(uri,
-                         headers={'Content-Type': 'text/plain',
-                                  'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
-                                  'Digest': 'md5=afqrYmg1ApVVDefVh7wyPQ=='},
-                         data='goodbye')
+        r = self.put(uri,
+                     headers={'Content-Type': 'text/plain',
+                              'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                              'Digest': 'md5=afqrYmg1ApVVDefVh7wyPQ=='},
+                     data='goodbye')
 
     def test_fedora_7_3(self):
         """Test persistence fixity."""
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/plain',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
-                          data='hello')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/plain',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                      data='hello')
         self.assertEqual(r.status_code, 201)
         uri = r.headers.get('Location')
         # Can we get digest back?
-        r = requests.head(uri, headers={'Want-Digest': 'sha'})
+        r = self.head(uri, headers={'Want-Digest': 'sha'})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.headers.get('Digest'), 'sha=qvTGHdzF6KLavt4PO0gs2a6pQ00=')
-        r = requests.get(uri, headers={'Want-Digest': 'sha'})
+        r = self.get(uri, headers={'Want-Digest': 'sha'})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.headers.get('Digest'), 'sha=qvTGHdzF6KLavt4PO0gs2a6pQ00=')
-        r = requests.head(uri, headers={'Want-Digest': 'sha;q=0.1, md5;q=1.0, special1;q=1.0, special2'})
+        r = self.head(uri, headers={'Want-Digest': 'sha;q=0.1, md5;q=1.0, special1;q=1.0, special2'})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.headers.get('Digest'), 'md5=XUFAKrxLKna5cZ2REBfFkg==')
         # Error cases
-        r = requests.head(uri, headers={'Want-Digest': 'sha;q=2.0'})
+        r = self.head(uri, headers={'Want-Digest': 'sha;q=2.0'})
         self.assertEqual(r.status_code, 400)
-        r = requests.head(uri, headers={'Want-Digest': 'sha;q=0.1, md5;q=0.6, special1;q=1.0, special2'})
+        r = self.head(uri, headers={'Want-Digest': 'sha;q=0.1, md5;q=0.6, special1;q=1.0, special2'})
         self.assertEqual(r.status_code, 409)
 
 
@@ -1015,50 +1061,50 @@ class TestTrilpy(TCaseWithSetup):
     def test01_unknown_paths(self):
         """Expect 404 for bad path."""
         url = urljoin(self.rooturi, 'does_not_exist')
-        r = requests.get(url)
+        r = self.get(url)
         self.assertEqual(r.status_code, 404)
-        r = requests.head(url)
+        r = self.head(url)
         self.assertEqual(r.status_code, 404)
-        r = requests.post(url)
+        r = self.post(url)
         self.assertEqual(r.status_code, 404)
-        r = requests.delete(url)
+        r = self.delete(url)
         self.assertEqual(r.status_code, 404)
 
     def test02_root_container(self):
         """Root container."""
-        r = requests.get(urljoin(self.rooturi, '/'))
+        r = self.get(urljoin(self.rooturi, '/'))
         self.assertEqual(r.status_code, 200)
 
     def test03_delete_resource_get_gone(self):
         """Delete the LDPC at /."""
         uri = self.post_ldpnr(data=b'text')
-        r = requests.head(uri)
+        r = self.head(uri)
         self.assertEqual(r.status_code, 200)
-        r = requests.delete(uri)
+        r = self.delete(uri)
         self.assertEqual(r.status_code, 200)
         # ... gives 410 on uri noe
-        r = requests.head(uri)
+        r = self.head(uri)
         self.assertEqual(r.status_code, 410)
-        r = requests.get(uri)
+        r = self.get(uri)
         self.assertEqual(r.status_code, 410)
-        r = requests.post(uri, data='')
+        r = self.post(uri, data='')
         self.assertEqual(r.status_code, 410)
 
     def test_trilpy_4_3_3(self):
         """LDPCv POST is supported by trilpy."""
         ldprv_data = '<http://ex.org/4_3_3> <http://ex.org/a> "POST Test".'
         (ldprv_uri, ldpcv_uri) = self.post_ldprv(data=ldprv_data)
-        r = requests.options(ldpcv_uri)
+        r = self.options(ldpcv_uri)
         # a POST that does not contain a Memento-Datetime header should be understood
         # to create a new LDPRm contained by the LDPCv, reflecting the state of the
         # LDPRv at the time of the POST. Any request body must be ignored
-        r = requests.post(ldpcv_uri,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                          data='<http://ex.org/4_3_3a> <http://ex.org/a> "IGNORE_ME".')
+        r = self.post(ldpcv_uri,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                      data='<http://ex.org/4_3_3a> <http://ex.org/a> "IGNORE_ME".')
         self.assertEqual(r.status_code, 201)
         loc = r.headers.get('Location')
-        r = requests.get(loc)
+        r = self.get(loc)
         self.assertEqual(r.status_code, 200)
         content_str = r.content.decode('utf-8')
         self.assertIn('"POST Test"', content_str)  # LDPRv data
@@ -1067,15 +1113,15 @@ class TestTrilpy(TCaseWithSetup):
         # a POST with a Memento-Datetime header should be understood to create a new
         # LDPRm contained by the LDPCv, with the state given in the request body and
         # the datetime given in the Memento-Datetime request header
-        r = requests.post(ldpcv_uri,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"',
-                                   'Memento-Datetime': 'Fri, 7 Dec 2017 15:05:00 GMT'},
-                          data='<http://ex.org/4_3_3b> <http://ex.org/a> "USE_ME".')
+        r = self.post(ldpcv_uri,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"',
+                               'Memento-Datetime': 'Fri, 7 Dec 2017 15:05:00 GMT'},
+                      data='<http://ex.org/4_3_3b> <http://ex.org/a> "USE_ME".')
         # may be 4xx for not supported, else create with Location, ignore body
         self.assertEqual(r.status_code, 201)
         loc = r.headers.get('Location')
-        r = requests.get(loc)
+        r = self.get(loc)
         self.assertEqual(r.status_code, 200)
         content_str = r.content.decode('utf-8')
         self.assertNotIn('"POST Test"', content_str)  # LDPRv data overwritten
@@ -1084,11 +1130,11 @@ class TestTrilpy(TCaseWithSetup):
 
     def test_trilpy_5_5(self):
         """Cross domain ACLs not allowed => MUST be rejected with 4xx and constraints."""
-        r = requests.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type",'
-                                           '<http://example.org/external-acl>; rel="acl"'},
-                          data='')
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type",'
+                                       '<http://example.org/external-acl>; rel="acl"'},
+                      data='')
         self.assert_4xx_with_link_to_constraints(r)
 
 
