@@ -11,6 +11,7 @@ import tornado.ioloop
 import tornado.web
 from urllib.parse import urljoin, urlsplit
 
+from .auth_basic import get_user
 from .digest import Digest, UnsupportedDigest, BadDigest
 from .ldpc import LDPC
 from .ldpcv import LDPCv
@@ -32,10 +33,10 @@ class LDPHandler(tornado.web.RequestHandler):
     """LDP and Fedora request handler."""
 
     store = None
+    no_auth = False
     support_put = True
     support_patch = True
     support_delete = True
-    support_acl = True
     support_versioning = True
     require_if_match_etag = True
     base_uri = 'BASE'
@@ -48,6 +49,9 @@ class LDPHandler(tornado.web.RequestHandler):
     ldp_rdf_source = str(LDP.RDFSource)
     ldp_nonrdf_source = str(LDP.NonRDFSource)
     constraints_path = '/constraints.txt'
+    # Authorization
+    fedora_admin_webid = 'fedoraAdmin'  # This should really be a webid but usernames in HTTP Basic auth can't contain :
+    users = {fedora_admin_webid: 'secret'}
 
     def initialize(self):
         """Set up place to accumulate links for Link header."""
@@ -65,6 +69,17 @@ class LDPHandler(tornado.web.RequestHandler):
         # response building
         self._links = []  # accumulate links for Link header
 
+    def get_current_user(self):
+        """Get current user from authentication credentials.
+
+        Overrides tornado's standard setter for current_user property.
+        """
+        if (self.no_auth):
+            # all accesses from admin
+            return self.fedora_admin_webid
+        # do HTTP Basic auth
+        return get_user(self.request.headers.get('Authorization'), self.users)
+
     def head(self):
         """HEAD - GET with no body."""
         self.get(is_head=True)
@@ -74,6 +89,7 @@ class LDPHandler(tornado.web.RequestHandler):
         uri = self.path_to_uri(self.request.path)
         want_digest = self.check_want_digest()
         resource = self.from_store(uri)
+        self.check_authz(resource, 'read')
         if (isinstance(resource, LDPNR)):
             content_type = resource.content_type
             content = resource.content
@@ -136,6 +152,7 @@ class LDPHandler(tornado.web.RequestHandler):
         """
         uri = self.path_to_uri(self.request.path)
         resource = self.from_store(uri)
+        self.check_authz(resource, 'write')
         if (resource.is_ldprm):
             raise HTTPError(405, "POST not supported on LDPRm/Memento")
         elif (not isinstance(resource, LDPC)):
@@ -197,9 +214,12 @@ class LDPHandler(tornado.web.RequestHandler):
         if (uri in self.store):
             replace = True
             current_resource = self.store[uri]
+            self.check_authz(current_resource, 'write')
             current_type = current_resource.rdf_type_uri
             if (current_resource.is_ldprm):
                 raise HTTPError(405, "PUT not supported on LDPRm/Memento")
+        else:
+            self.check_authz(None, 'write')  # FIXME - We have no resource, how to compute auth?
         resource = self.put_post_resource(uri, current_type)
         if (uri in self.store):
             # FIXME - What about versioning PUT to replace requests?
@@ -324,6 +344,7 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(405, "PATCH not supported")
         uri = self.path_to_uri(self.request.path)
         resource = self.from_store(uri)
+        self.check_authz(resource, 'write')
         if (resource.is_ldprm):
             raise HTTPError(405, "PATCH not supported on LDPRm/Memento")
         if (not isinstance(resource, LDPRS)):
@@ -350,6 +371,7 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(405, "DELETE not supported")
         uri = self.path_to_uri(self.request.path)
         resource = self.from_store(uri)  # handles 404/410 if not present
+        self.check_authz(resource, 'write')
         if (resource.is_ldpcv):
             # Remove versioning from original, remove Memento
             ldprv = self.store[resource.original]
@@ -376,6 +398,7 @@ class LDPHandler(tornado.web.RequestHandler):
             # Specific resource
             uri = self.path_to_uri(self.request.path)
             resource = self.from_store(uri)
+            self.check_authz(resource, 'read')  # FIXME - do we do OPTIONS for read or write permissions?
             self.add_links('type', resource.rdf_type_uris)
             self.set_link_header()
             self.set_allow(resource)
@@ -490,7 +513,7 @@ class LDPHandler(tornado.web.RequestHandler):
     def check_want_digest(self):
         """Check to see whether a Want-Digest header is provided, check support.
 
-        Will return empty(False) if there is not Want-Digest header, raise HTTPError
+        Will return empty (False) if there is no Want-Digest header, raise HTTPError
         if bad, else return Digest object with header.
         """
         want_digest_header = self.request.headers.get("Want-Digest")
@@ -502,6 +525,19 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(409, str(e))
         except BadDigest as e:
             raise HTTPError(400, str(e))
+
+    def check_authz(self, resource, access_type):
+        """Check authorization for access_type on resource.
+
+        Will send a 403 response if the access requested is not allowed.
+        """
+        user = self.current_user
+        if (resource is None):
+            logging.debug("check_authz: %s for PUT-to-create %s" % (str(user), access_type))
+        else:
+            logging.debug("check_authz: %s for %s %s" % (str(user), resource.uri, access_type))
+        if (user != 'fedoraAdmin'):  # FIXME -- Add some real check of ACLs!
+            raise HTTPError(403, 'Access denied (user %s, perms %s)' % (str(user), access_type))
 
     def conneg(self, supported_types):
         """Return content_type for response by conneg.
@@ -643,12 +679,12 @@ def make_app():
     ])
 
 
-def run(port, store, support_put=True, support_delete=True, support_acl=True):
+def run(port, store, no_auth=False, support_put=True, support_delete=True):
     """Run LDP server on port with given store and options."""
     LDPHandler.store = store
+    LDPHandler.no_auth = no_auth
     LDPHandler.support_put = support_put
     LDPHandler.support_delete = support_delete
-    LDPHandler.support_acl = support_acl
     LDPHandler.base_uri = store.base_uri
     StatusHandler.store = store
     app = make_app()

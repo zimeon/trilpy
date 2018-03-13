@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test trilpy by running on localhost."""
 import argparse
+from base64 import b64encode
 import unittest
 import http.client
 from urllib.parse import urljoin, urlparse
@@ -21,6 +22,7 @@ class TCaseWithSetup(unittest.TestCase):
     """
 
     port = 9999
+    no_auth = False
     rooturi = 'http://localhost:' + str(port)  # + '/'
     start_trilpy = True
     new_for_each_test = False
@@ -34,13 +36,18 @@ class TCaseWithSetup(unittest.TestCase):
     @classmethod
     def _start_trilpy(cls):
         """Start trilpy."""
-        cls.proc = Popen(['/usr/bin/env', 'python', cls.trilpy_path,
-                          '-v', '-p', str(cls.port)])
+        options = ['-v', '-p', str(cls.port)]
+        if (cls.no_auth):
+            options.append('--no-auth')
+        cls.proc = Popen(['/usr/bin/env', 'python', cls.trilpy_path] + options)
         print("Started trilpy (pid=%d)" % (cls.proc.pid))
         for n in range(0, 20):
             time.sleep(1)
             try:
-                r = requests.head(cls.rooturi, timeout=0.5)
+                if (cls.no_auth):
+                    r = requests.head(cls.rooturi, timeout=0.5)
+                else:
+                    r = requests.head(cls.rooturi, auth=(cls.user, cls.password), timeout=0.5)
                 if (r.status_code == 200):
                     break
                 else:
@@ -148,7 +155,7 @@ class TCaseWithSetup(unittest.TestCase):
 
     def request_and_parse_graph(self, uri, check_container=False):
         """Return RDF graph from uri."""
-        r = requests.get(uri)
+        r = self.get(uri)
         self.assertEqual(r.status_code, 200)
         link_header = r.headers.get('Link')
         if (check_container):
@@ -265,6 +272,8 @@ class TCaseWithSetup(unittest.TestCase):
 
 class LDPTestSuite(TCaseWithSetup):
     """LDPTestSuite class to run the Java LDP testsuite."""
+
+    no_auth = True
 
     def test_ldp_testsuite(self):
         """Run the standard LDP testsuite.
@@ -671,6 +680,10 @@ class TestFedora(TCaseWithSetup):
             conn.putrequest("POST", u.path)
             for (name, value) in headers:
                 conn.putheader(name, value)
+            # Add auth header
+            if self.user and self.password:
+                up = b64encode(b':'.join((self.user.encode(), self.password.encode())))
+                conn.putheader('Authorization', 'Basic ' + up.decode())
             conn.endheaders()
             conn.send(b'some-data')
             response = conn.getresponse()
@@ -1148,9 +1161,9 @@ if __name__ == '__main__':
                         help="Start trilpy fresh for each test (slow)")
     parser.add_argument('--port', type=int, default=9999,
                         help="Start trilpy on port")
-    parser.add_argument('--user', action='store', default='testuser',
+    parser.add_argument('--user', action='store', default='fedoraAdmin',
                         help="User name for authentication tests.")
-    parser.add_argument('--password', action='store', default='testpass',
+    parser.add_argument('--password', action='store', default='secret',
                         help="Password to got with --user for authentication tests.")
     parser.add_argument('--digest', action='store', default='sha1',
                         help="Digest type to test.")

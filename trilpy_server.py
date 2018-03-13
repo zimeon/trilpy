@@ -21,6 +21,10 @@ def main():
                         help="do not support PUT method")
     parser.add_argument('--no-delete', action='store_true',
                         help="do not support DELETE method")
+    parser.add_argument('--no-auth', action='store_true',
+                        help="do not support authentication")
+    parser.add_argument('--users', default='fedoraAdmin=secret',
+                        help='users and passwords (user1:pass1,user2:pass2)')
     parser.add_argument('--no-acl', action='store_true',
                         help="do not support Web Access Control ACLs")
     parser.add_argument('--root-acl', default='/.acl',
@@ -53,9 +57,9 @@ def main():
         acl_default.add_public_read(inherit=True)
         acl.acl_default = store.add(acl, args.default_acl)
     run(args.port, store,
+        no_auth=(args.no_auth),
         support_put=(not args.no_put),
-        support_delete=(not args.no_delete),
-        support_acl=(not args.no_acl))
+        support_delete=(not args.no_delete))
 
 if __name__ == "__main__":
     main()
