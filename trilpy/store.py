@@ -4,6 +4,7 @@ import logging
 from urllib.parse import urljoin
 from rdflib import Graph, URIRef
 
+from .ldpc import LDPC
 from .ldprs import LDPRS
 
 
@@ -102,6 +103,10 @@ class Store(object):
     def object_references(self, uri):
         """Graph of triples in store that refer to object uri.
 
+        These may come from two sources:
+            1. Arbitrary triples in RDF then have uri as the object.
+            2. Containment and membership relations for uri.
+
         FIXME - This is SPECTACULARLY inefficient! Does a simple
         search over all triples in all LDPRS objects looking for
         for object uri.
@@ -112,6 +117,15 @@ class Store(object):
             if (isinstance(resource, LDPRS)):
                 for (s, p, o) in resource.triples(triple_pattern):
                     g.add((s, p, o))
+            if (isinstance(resource, LDPC)):
+                if (uri in resource.contains):
+                    g.add((URIRef(resource.uri),
+                           resource.containment_predicate,
+                           URIRef(uri)))
+                if (uri in resource.members):
+                    g.add((URIRef(resource.uri),
+                           resource.membership_predicate,
+                           URIRef(uri)))
         return g
 
     def acl(self, uri, depth=0):

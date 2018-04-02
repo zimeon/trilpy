@@ -298,6 +298,8 @@ class FedoraAPITestSuite(TCaseWithSetup):
     See: https://github.com/fcrepo4-labs/Fedora-API-Test-Suite
     """
 
+    no_auth = True
+
     def test_fedora_api_testsuite(self):
         """Run the Fedora API testsuite.
 
@@ -403,7 +405,7 @@ class TestFedora(TCaseWithSetup):
             self.assertIn(container_type, links)
 
     def test_fedora_3_2_1(self):
-        """Test additional PreferInboundReferences value of Prefer."""
+        """Test additional PreferInboundReferences value of Prefer: return=representation."""
         if self.skip_should:
             return
         pir = 'http://fedora.info/definitions/fcrepo#PreferInboundReferences'
@@ -415,14 +417,14 @@ class TestFedora(TCaseWithSetup):
         self.assertEqual(r.status_code, 201)
         # Request rooturi with inbound references
         r = self.get(self.rooturi,
-                     headers={'Prefer': pir})
+                     headers={'Prefer': 'return=representation; include="%s"' % pir})
         g = Graph()
         g.parse(format='turtle', data=r.content)
         self.assertIn((URIRef('http://ex.org/adf'), URIRef('http://ex.org/bnm'), URIRef(self.rooturi)), g)
         # Note that the requests package may combine header with commas:
         # http://docs.python-requests.org/en/master/user/quickstart/#response-headers
         pa_headers = (r.headers.get('Preference-Applied') or '').split(',')
-        self.assertIn(pir, pa_headers)
+        self.assertIn('return=representation', pa_headers)
 
     def test_fedora_3_3_1(self):
         """Check handling of Digest header."""

@@ -19,7 +19,7 @@ from .ldpnr import LDPNR
 from .ldpr import LDPR
 from .ldprs import LDPRS, PatchFailed, PatchIllegal
 from .namespace import LDP
-from .prefer_header import ldp_return_representation_omits
+from .prefer_header import parse_prefer_return_representation
 from .store import KeyDeleted
 
 
@@ -99,23 +99,24 @@ class LDPHandler(tornado.web.RequestHandler):
             content_type = conneg_on_accept(
                 resource.rdf_media_types, self.request.headers.get("Accept"))
             # Is there a Prefer return=representation header?
-            omits = ldp_return_representation_omits(
+            (omits, includes) = parse_prefer_return_representation(
                 self.request.headers.get_list('Prefer'))
+            preference_applied = False
             # logging.debug("Prefer: " + str(self.request.headers.get_list('Prefer')))
             logging.debug("Omits: " + str(omits))
-            # Is there a Prefer InboundReferences header?
-            PIR = 'http://fedora.info/definitions/fcrepo#PreferInboundReferences'
+            logging.debug("Includes: " + str(includes))
+            # Is there a PreferInboundReferences header?
             ir_graph = None
-            if (PIR in self.request.headers.get_list('Prefer')):
+            if ('http://fedora.info/definitions/fcrepo#PreferInboundReferences' in includes):
                 ir_graph = self.store.object_references(uri)
                 logging.debug("PreferInboundReferences, adding %d triples referencing %s" % (len(ir_graph), uri))
-                self.set_header("Preference-Applied", PIR)
+                preference_applied = True
             content = resource.serialize(content_type, omits, extra=ir_graph)
             if (len(resource) < 20):
                 logging.debug("RDF response:\n" + content)
             else:
                 logging.debug("RDF response: %d triples" % (len(resource)))
-            if (len(omits) > 0):
+            if (len(omits) > 0 or preference_applied):
                 self.set_header("Preference-Applied", "return=representation")
         self.add_links('type', resource.rdf_types)
         self.add_links('acl', [self.store.individual_acl(uri)])
