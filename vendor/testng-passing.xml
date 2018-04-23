@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="Fedora API Specification Test Suite">
+
+  <listeners>
+    <listener class-name='com.ibr.fedora.report.HtmlReporter'/>
+    <listener class-name="com.ibr.fedora.report.EarlReporter"/>
+  </listeners>
+
+  <!--Set console logging with 'verbose' values from 1-10 (10 is most verbose)-->
+  <test name="Fedora API Specification Tests -- trilpy regressions" verbose="1">
+
+    <groups>
+      <define name="all">
+        <include name="MUST"/>
+        <include name="SHOULD"/>
+        <include name="MAY"/>
+        <include name="MUST NOT"/>
+        <include name="SHOULD NOT"/>
+      </define>
+      <define name="must">
+        <include name="MUST"/>
+      </define>
+      <define name="should">
+        <include name="SHOULD"/>
+      </define>
+      <define name="may">
+        <include name="MAY"/>
+      </define>
+      <define name="mustnot">
+        <include name="MUST NOT"/>
+      </define>
+      <define name="shouldnot">
+        <include name="SHOULD NOT"/>
+      </define>
+    </groups>
+
+    <classes>
+      <class name="com.ibr.fedora.testsuite.SetUpSuite"/>
+      <class name="com.ibr.fedora.testsuite.Container">
+        <!--Specify methods to 'include' or 'exclude'-->
+        <methods>
+          <exclude name="ldpcMembershipTriples"/>
+          <exclude name="ldpcMinimalContainerTriples"/>
+        </methods>
+      </class>
+      <class name="com.ibr.fedora.testsuite.Ldpnr"/>
+      <class name="com.ibr.fedora.testsuite.HttpGet">
+        <methods>
+          <exclude name="additionalValuesForPreferHeader"/>
+          <exclude name="responsePreferenceAppliedHeader"/>
+          <exclude name="responseDescribesHeader"/>
+        </methods>
+      </class>
+      <class name="com.ibr.fedora.testsuite.HttpHead"/>
+      <class name="com.ibr.fedora.testsuite.HttpOptions"/>
+      <class name="com.ibr.fedora.testsuite.HttpPost">
+        <methods>
+          <exclude name="constrainedByResponseHeader"/>
+          <exclude name="postDigestResponseHeaderAuthentication"/>
+          <exclude name="postDigestResponseHeaderVerification"/>
+        </methods>
+      </class>
+      <class name="com.ibr.fedora.testsuite.HttpPut">
+        <methods>
+          <exclude name="httpPut"/>
+          <exclude name="updateTriples"/>
+          <exclude name="updateDisallowedTriples"/>
+          <exclude name="updateDisallowedTriplesResponse"/>
+          <exclude name="updateDisallowedTriplesConstrainedByHeader"/>
+          <exclude name="httpPutNR"/>
+          <exclude name="putDigestResponseHeaderAuthentication"/>
+          <exclude name="putDigestResponseHeaderVerification"/>
+        </methods>
+      </class>
+      <class name="com.ibr.fedora.testsuite.HttpPatch">
+        <methods>
+          <exclude name="supportPatch"/>
+          <exclude name="ldpPatchContentTypeSupport"/>
+          <exclude name="serverManagedPropertiesModification"/>
+          <exclude name="statementNotPersistedResponseBody"/>
+          <exclude name="statementNotPersistedConstrainedBy"/>
+          <exclude name="disallowChangeResourceType"/>
+	</methods>
+      </class>
+      <class name="com.ibr.fedora.testsuite.HttpDelete"/>
+      <class name="com.ibr.fedora.testsuite.ExternalBinaryContent">
+        <methods>
+          <exclude name="putCreateExternalBinaryContent"/>
+          <exclude name="putUpdateExternalBinaryContent"/>
+          <exclude name="createExternalBinaryContentCheckAccesType"/>
+          <exclude name="postCheckUnsupportedMediaType"/>
+          <!--exclude name="putCheckUnsupportedMediaType"/-->
+          <!--exclude name="checkUnsupportedMediaType"/-->
+          <!--exclude name="postCheckHeaders"/-->
+          <!--exclude name="putUpdateCheckHeaders"/-->
+          <exclude name="getCheckContentLocationHeader"/>
+          <exclude name="headCheckContentLocationHeader"/>
+          <!--exclude name="respondWantDigestExternalBinaryContent"/-->
+          <!--exclude name="respondWantDigestExternalBinaryContentHead"/-->
+          <!--exclude name="respondWantDigestTwoSupportedExternalBinaryContent"/-->
+          <!--exclude name="respondWantDigestTwoSupportedExternalBinaryContentHead"/-->
+          <!--exclude name="respondWantDigestTwoSupportedQvalueNonZeroExternalBinaryContent"/-->
+          <!--exclude name="respondWantDigestTwoSupportedQvalueNonZeroExternalBinaryContentHead"/-->
+          <!--exclude name="respondWantDigestNonSupportedExternalBinaryContent"/-->
+          <!--exclude name="respondWantDigestNonSupportedExternalBinaryContentHead"/-->
+        </methods>
+      </class>
+    </classes>
+
+  </test>
+
+</suite>
