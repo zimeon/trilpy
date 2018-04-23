@@ -15,7 +15,7 @@ INFO:root:Running trilpy on http://localhost:9999
 and then in a separate window run the test suite:
 
 ```
-> java -jar target/testSuite-1.0-SNAPSHOT-shaded.jar --host http://localhost:9999
+> java -jar target/testSuite-1.0-SNAPSHOT-shaded.jar --baseurl http://localhost:9999
 [TestNG] Running:
   Command line suite
 
@@ -30,6 +30,18 @@ Writing HTML results:
 ```
 
 Success and failure summary in `report/testsuite-execution-report.html` and log data in `report/testsuite-execution.log`.
+
+### Running a subset of the tests
+
+Use `--requirements MUST` or such (see `-h` for help):
+
+```
+> java -jar vendor/testSuite-1.0-SNAPSHOT-shaded.jar --baseurl http://localhost:9999 --requirements MUST
+```
+
+### Running a specific test
+
+Running a specific test or a custom subset of tests requires the creation of a [TestNG XML file](http://testng.org/doc/documentation-main.html) and specification of that file with the `--testngxml` option. There are comments in the master [`testng.xml`](https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/blob/master/src/main/resources/testng.xml) which show how to select a specific test -- the method name for the test must be placed within the scope of the appropriate class however.
 
 ## Using a specific root container location
 
