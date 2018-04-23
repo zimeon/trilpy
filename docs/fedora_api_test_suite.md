@@ -56,6 +56,6 @@ INFO:root:Running trilpy on http://localhost:8080
 and the correspondig setup for the test suite is:
 
 ```
-> java -jar target/testSuite-1.0-SNAPSHOT-shaded.jar --host http://localhost:8080/root
+> java -jar target/testSuite-1.0-SNAPSHOT-shaded.jar --baseurl http://localhost:8080/root
 ...
 ```
