@@ -132,7 +132,7 @@ The integration tests normally run the  [LDP Test Suite](https://w3c.github.io/l
 
 ### Fedora API Test Suite
 
-The integration tests include support for running the [Fedora API Test Suite](https://github.com/fcrepo4-labs/Fedora-API-Test-Suite). A version compiled for Java 8 is included in the [`vendor`](vendor) directory. The normal set of integration tests skips this test suite because `trilpy` is quite some way from passing! This test suite can be run on its own with the following (the `--failing` flag avoids skipping it):
+The integration tests include support for running the [Fedora API Test Suite](https://github.com/fcrepo4-labs/Fedora-API-Test-Suite). A version compiled for Java 8 is included in the [`vendor`](vendor) directory. The normal set of integration tests runs a limited set of the tests in this test suite because `trilpy` is quite some way from passing all tests! The full test suite can be run on its own with the following (the `--failing` flag says run all the tests):
 
 ```
 > ./trilpy_tests.py --failing FedoraAPITestSuite

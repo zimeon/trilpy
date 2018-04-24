@@ -303,15 +303,18 @@ class FedoraAPITestSuite(TCaseWithSetup):
     def test_fedora_api_testsuite(self):
         """Run the Fedora API testsuite.
 
-        FIXME - CURRENTLY IGNORES RESULTS AS trilpy DOES NOT EVEN NEARLY
-        PASS THESE TESTS.
+        Relies on a custom set of test excludes in vendor/testng-passing.xml
+        as trilpy is still some way from passing all tests.
         """
-        if not self.failing:
-            self.skipTest("Skipping known failing test (use --failing to run)")
+        if self.failing:
+            excludes = ''
+        else:
+            print("Skipping known failing tests in Fedora API test suite (use --failing to run)")
+            excludes = '--testngxml vendor/testng-passing.xml'
         base_uri = 'http://localhost:' + str(self.port)
-        p = run('java -jar %s --baseurl %s --user %s --password %s' %
-                (self.fedora_api_test_suite_jar, base_uri, self.user, self.password),
-                shell=True)
+        p = run('java -jar %s --baseurl %s %s --user %s --password %s' %
+                (self.fedora_api_test_suite_jar, base_uri, excludes,
+                 self.user, self.password), shell=True)
         self.assertEqual(p.returncode, 0,  # FIXME - seems to always give 0
                          "Expected zero return code, got %s" % p.returncode)
 
