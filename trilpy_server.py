@@ -23,6 +23,8 @@ def main():
                         help="do not support DELETE method")
     parser.add_argument('--no-auth', action='store_true',
                         help="do not support authentication")
+    parser.add_argument('--optional-if-match-etag', action='store_true',
+                        help="do not require an If-Match header for updates")
     parser.add_argument('--users', default='fedoraAdmin=secret',
                         help='users and passwords (user1:pass1,user2:pass2)')
     parser.add_argument('--no-acl', action='store_true',
@@ -59,7 +61,8 @@ def main():
     run(args.port, store,
         no_auth=(args.no_auth),
         support_put=(not args.no_put),
-        support_delete=(not args.no_delete))
+        support_delete=(not args.no_delete),
+        require_if_match_etag=(not args.optional_if_match_etag))
 
 if __name__ == "__main__":
     main()

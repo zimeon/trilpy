@@ -680,12 +680,13 @@ def make_app():
     ])
 
 
-def run(port, store, no_auth=False, support_put=True, support_delete=True):
+def run(port, store, no_auth=False, support_put=True, support_delete=True, require_if_match_etag=True):
     """Run LDP server on port with given store and options."""
     LDPHandler.store = store
     LDPHandler.no_auth = no_auth
     LDPHandler.support_put = support_put
     LDPHandler.support_delete = support_delete
+    LDPHandler.require_if_match_etag = require_if_match_etag
     LDPHandler.base_uri = store.base_uri
     StatusHandler.store = store
     app = make_app()
