@@ -3,8 +3,8 @@
 <suite name="Fedora API Specification Test Suite">
 
   <listeners>
-    <listener class-name='com.ibr.fedora.report.HtmlReporter'/>
-    <listener class-name="com.ibr.fedora.report.EarlReporter"/>
+    <listener class-name='org.fcrepo.spec.testsuite.report.HtmlReporter'/>
+    <listener class-name="org.fcrepo.spec.testsuite.report.EarlReporter"/>
   </listeners>
 
   <!--Set console logging with 'verbose' values from 1-10 (10 is most verbose)-->
@@ -36,32 +36,32 @@
     </groups>
 
     <classes>
-      <class name="com.ibr.fedora.testsuite.SetUpSuite"/>
-      <class name="com.ibr.fedora.testsuite.Container">
+      <class name="org.fcrepo.spec.testsuite.SetUpSuite"/>
+      <class name="org.fcrepo.spec.testsuite.crud.Container">
         <!--Specify methods to 'include' or 'exclude'-->
         <methods>
           <exclude name="ldpcMembershipTriples"/>
           <exclude name="ldpcMinimalContainerTriples"/>
         </methods>
       </class>
-      <class name="com.ibr.fedora.testsuite.Ldpnr"/>
-      <class name="com.ibr.fedora.testsuite.HttpGet">
+      <class name="org.fcrepo.spec.testsuite.crud.Ldpnr"/>
+      <class name="org.fcrepo.spec.testsuite.crud.HttpGet">
         <methods>
           <exclude name="additionalValuesForPreferHeader"/>
           <exclude name="responsePreferenceAppliedHeader"/>
           <exclude name="responseDescribesHeader"/>
         </methods>
       </class>
-      <class name="com.ibr.fedora.testsuite.HttpHead"/>
-      <class name="com.ibr.fedora.testsuite.HttpOptions"/>
-      <class name="com.ibr.fedora.testsuite.HttpPost">
+      <class name="org.fcrepo.spec.testsuite.crud.HttpHead"/>
+      <class name="org.fcrepo.spec.testsuite.crud.HttpOptions"/>
+      <class name="org.fcrepo.spec.testsuite.crud.HttpPost">
         <methods>
           <exclude name="constrainedByResponseHeader"/>
           <exclude name="postDigestResponseHeaderAuthentication"/>
           <exclude name="postDigestResponseHeaderVerification"/>
         </methods>
       </class>
-      <class name="com.ibr.fedora.testsuite.HttpPut">
+      <class name="org.fcrepo.spec.testsuite.crud.HttpPut">
         <methods>
           <exclude name="httpPut"/>
           <exclude name="updateTriples"/>
@@ -73,7 +73,7 @@
           <exclude name="putDigestResponseHeaderVerification"/>
         </methods>
       </class>
-      <class name="com.ibr.fedora.testsuite.HttpPatch">
+      <class name="org.fcrepo.spec.testsuite.crud.HttpPatch">
         <methods>
           <exclude name="supportPatch"/>
           <exclude name="ldpPatchContentTypeSupport"/>
@@ -83,8 +83,8 @@
           <exclude name="disallowChangeResourceType"/>
 	</methods>
       </class>
-      <class name="com.ibr.fedora.testsuite.HttpDelete"/>
-      <class name="com.ibr.fedora.testsuite.ExternalBinaryContent">
+      <class name="org.fcrepo.spec.testsuite.crud.HttpDelete"/>
+      <class name="org.fcrepo.spec.testsuite.crud.ExternalBinaryContent">
         <methods>
           <exclude name="putCreateExternalBinaryContent"/>
           <exclude name="putUpdateExternalBinaryContent"/>
