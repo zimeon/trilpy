@@ -613,31 +613,34 @@ class LDPHandler(tornado.web.RequestHandler):
         to actually write out the header.
         """
         for uri in uris:
-            self._links.append('<%s>; rel="%s"' % (uri, rel))
+            link = '<%s>; rel="%s"' % (uri, rel)
+            if link not in self._links:
+                self._links.append(link)
 
     def set_link_header(self):
-        """Add Link header with set of rel uris."""
+        """Add Link header based on accumulated links from add_links()."""
+        # FIXME - Add a constrainedBy link in all responses until resolution of
+        # https://github.com/fcrepo/fcrepo-specification/issues/380 . This is
+        # legal per LDP https://www.w3.org/TR/ldp/#ldpr-gen-pubclireqs
+        # but not sure whether it is best practice
+        self.add_links('http://www.w3.org/ns/ldp#constrainedBy',
+                       [self.path_to_uri(self.constraints_path)])
         if (len(self._links) > 0):
             logging.debug('Link: ' + ', '.join(self._links))
             self.set_header('Link', ', '.join(self._links))
 
-    def set_links(self, rel, uris):
-        """Add Link headers with set of rel uris."""
-        links = []
-        for uri in uris:
-            links.append('<%s>; rel="%s"' % (uri, rel))
-        self.set_header('Link', ', '.join(links))
-
     def write_error(self, status_code, **kwargs):
         """Plain text error message (nice with curl).
 
-        Also adds a Link header for constraints that (might have)
-        caused an error. Use defined in
+        Clears any links set and adds a link for constraints that (might
+        have) caused an error. Use defined in
         <https://www.w3.org/TR/ldp/#ldpr-gen-pubclireqs>
         and servers MAY add this header indescriminately.
         """
-        self.set_links('http://www.w3.org/ns/ldp#constrainedBy',
+        self._links = []
+        self.add_links('http://www.w3.org/ns/ldp#constrainedBy',
                        [self.path_to_uri(self.constraints_path)])
+        self.set_link_header()
         self.set_header('Content-Type', 'text/plain')
         self.finish(str(status_code) + ' - ' + self._reason + "\n")
 
