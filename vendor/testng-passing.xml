@@ -54,23 +54,11 @@
       </class>
       <class name="org.fcrepo.spec.testsuite.crud.HttpHead"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpOptions"/>
-      <class name="org.fcrepo.spec.testsuite.crud.HttpPost">
-        <methods>
-          <exclude name="constrainedByResponseHeader"/>
-          <exclude name="postDigestResponseHeaderAuthentication"/>
-          <exclude name="postDigestResponseHeaderVerification"/>
-        </methods>
-      </class>
+      <class name="org.fcrepo.spec.testsuite.crud.HttpPost"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpPut">
         <methods>
           <exclude name="httpPut"/>
-          <exclude name="updateTriples"/>
-          <exclude name="updateDisallowedTriples"/>
-          <exclude name="updateDisallowedTriplesResponse"/>
-          <exclude name="updateDisallowedTriplesConstrainedByHeader"/>
-          <exclude name="httpPutNR"/>
-          <exclude name="putDigestResponseHeaderAuthentication"/>
-          <exclude name="putDigestResponseHeaderVerification"/>
+          <exclude name="httpPutUpdateDisallowedTriplesResponse"/>
         </methods>
       </class>
       <class name="org.fcrepo.spec.testsuite.crud.HttpPatch">
@@ -93,7 +81,7 @@
           <!--exclude name="putCheckUnsupportedMediaType"/-->
           <!--exclude name="checkUnsupportedMediaType"/-->
           <!--exclude name="postCheckHeaders"/-->
-          <!--exclude name="putUpdateCheckHeaders"/-->
+          <exclude name="putUpdateCheckHeaders"/>
           <exclude name="getCheckContentLocationHeader"/>
           <exclude name="headCheckContentLocationHeader"/>
           <!--exclude name="respondWantDigestExternalBinaryContent"/-->
