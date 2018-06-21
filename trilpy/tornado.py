@@ -507,9 +507,9 @@ class LDPHandler(tornado.web.RequestHandler):
         try:
             Digest(digest_header=digest_header).check(self.request.body)
         except UnsupportedDigest as e:
-            raise HTTPError(409, str(e))
-        except BadDigest as e:
             raise HTTPError(400, str(e))
+        except BadDigest as e:
+            raise HTTPError(409, str(e))
 
     def check_want_digest(self):
         """Check to see whether a Want-Digest header is provided, check support.
