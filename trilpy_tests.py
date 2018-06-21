@@ -434,19 +434,6 @@ class TestFedora(TCaseWithSetup):
         pa_headers = (r.headers.get('Preference-Applied') or '').split(',')
         self.assertIn('return=representation', pa_headers)
 
-    def test_fedora_3_3_1(self):
-        """Check handling of Digest header."""
-        if (not self.digest):
-            return()
-        r = self.post(self.rooturi,
-                      headers={'Content-Type': 'text/plain',
-                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
-                               'Digest': 'SURELY-NOT-SUPPORTED-TYPE'},  # FIXME - Digest syntax??
-                      data='stuff')
-        self.assertEqual(r.status_code, 400)
-        # FIXME - Add invalid digest for valid type
-        # FIXME - Add valid digest for valid type
-
     def test_fedora_3_5_a(self):
         """Check LDPC support for POST."""
         for resource_type in ['http://www.w3.org/ns/ldp#RDFSource',
@@ -494,6 +481,32 @@ class TestFedora(TCaseWithSetup):
         link_header2 = r.headers.get('Link')
         db_links2 = self.find_links(link_header, 'describedby')
         self.assertEqual(db_links, db_links2)
+
+    def test_fedora_3_5_1(self):
+        """Check handling of Digest header on POST."""
+        if (not self.digest):
+            return()
+        # Unsupported digest type
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/plain',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                               'Digest': 'XXX=SURELY-NOT-SUPPORTED-TYPE'},
+                      data='stuff')
+        self.assertEqual(r.status_code, 400)
+        # Supported digest with invalid value
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/plain',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                               'Digest': 'SHA=zzzDyvhfIqlvFe+A9MYgxAfm1q5='},
+                      data='stuff')
+        self.assertEqual(r.status_code, 409)
+        # Supported digest with valid value
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/plain',
+                               'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
+                               'Digest': 'md5=XUFAKrxLKna5cZ2REBfFkg=='},
+                      data='hello')
+        self.assertEqual(r.status_code, 201)
 
     def test_fedora_3_6(self):
         """Check PUT and content model handling."""
@@ -1026,20 +1039,20 @@ class TestFedora(TCaseWithSetup):
                                'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
                       data='')
 
-    def test_fedora_7_2(self):
+    def test_fedora_7_1(self):
         """Test transmission fixity."""
         r = self.post(self.rooturi,
                       headers={'Content-Type': 'text/plain',
                                'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
                                'Digest': 'sha=no-match'},
                       data='hello')
-        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.status_code, 409)
         r = self.post(self.rooturi,
                       headers={'Content-Type': 'text/plain',
                                'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
                                'Digest': 'unknown=no-match'},
                       data='hello')
-        self.assertEqual(r.status_code, 409)
+        self.assertEqual(r.status_code, 400)
         r = self.post(self.rooturi,
                       headers={'Content-Type': 'text/plain',
                                'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"',
@@ -1053,7 +1066,7 @@ class TestFedora(TCaseWithSetup):
                               'Digest': 'md5=afqrYmg1ApVVDefVh7wyPQ=='},
                      data='goodbye')
 
-    def test_fedora_7_3(self):
+    def test_fedora_7_2(self):
         """Test persistence fixity."""
         r = self.post(self.rooturi,
                       headers={'Content-Type': 'text/plain',
