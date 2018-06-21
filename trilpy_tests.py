@@ -39,6 +39,11 @@ class TCaseWithSetup(unittest.TestCase):
         options = ['-v', '-p', str(cls.port)]
         if (cls.no_auth):
             options.append('--no-auth')
+        if cls.__name__ == 'FedoraAPITestSuite':
+            # FIXME - disable If-Match check until test suite issue
+            # https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/88
+            # is resolved
+            options.append('--optional-if-match-etag')
         cls.proc = Popen(['/usr/bin/env', 'python', cls.trilpy_path] + options)
         print("Started trilpy (pid=%d)" % (cls.proc.pid))
         for n in range(0, 20):
