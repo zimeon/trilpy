@@ -66,6 +66,11 @@ class LDPRS(LDPR):
         """Number of content triples."""
         return len(self.content)
 
+    @property
+    def uriref(self):
+        """URIRef object for self.uri, safe if self.uri is None."""
+        return URIRef('' if self.uri is None else self.uri)
+
     def parse(self, content, content_type='text/turtle', context=None):
         """Parse RDF and add to this LDPRS.
 
@@ -198,12 +203,12 @@ class LDPRS(LDPR):
         self.add_server_managed_triples(g)
         return g
 
-    def add_containment_triples(self, graph):
-        """Noop version of add containment triples to graph."""
-        pass
-
     def containment_triples(self):
-        """Noop generator for containment triples (empty for plain LDPRS)."""
+        """Noop generator for containment triples (empty for plain LDPRS).
+
+        Needed here so that we can implement patch here that will also
+        work with LDPC sub-class.
+        """
         return []
 
     def triples(self, triple_pattern):

@@ -26,7 +26,7 @@ class LDPC(LDPRS):
         """
         super(LDPC, self).__init__(uri, **kwargs)
         self.container_type = container_type if isinstance(container_type, URIRef) else URIRef(container_type)
-        if self.container_type not in (LDP.Container, LDP.BasicContainer, LDP.DirectContainer, LDP.IndirectContainer):
+        if self.container_type not in (LDP.BasicContainer, LDP.DirectContainer, LDP.IndirectContainer):
             raise UnsupportedContainerType()
         self.contains = set()
         self.containment_predicate = LDP.contains
@@ -42,13 +42,13 @@ class LDPC(LDPRS):
         """
         self.add_type_triples(graph)
         if (self.container_type == LDP.DirectContainer):
-            graph.add((URIRef(self.uri),
+            graph.add((self.uriref,
                        LDP.membershipResource,
-                       URIRef(self.uri)))
-            graph.add((URIRef(self.uri),
+                       self.uriref))
+            graph.add((self.uriref,
                        LDP.hasMemberRelation,
                        self.membership_predicate))
-            graph.add((URIRef(self.uri),
+            graph.add((self.uriref,
                       LDP.insertedContentRelation,
                       LDP.MemberSubject))
         if (omits is None or 'membership' not in omits):
@@ -69,14 +69,14 @@ class LDPC(LDPRS):
     def containment_triples(self):
         """Generator for containment triples (rdflib style tuples)."""
         for contained in self.contains:
-            yield((URIRef(self.uri),
+            yield((self.uriref,
                    self.containment_predicate,
                    URIRef(contained)))
 
     def membership_triples(self):
         """Generator for membership triples (rdflib style tuples)."""
         for member in self.members:
-            yield((URIRef(self.uri),
+            yield((self.uriref,
                    self.membership_predicate,
                    URIRef(member)))
 

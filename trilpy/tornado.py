@@ -13,7 +13,7 @@ from urllib.parse import urljoin, urlsplit
 
 from .auth_basic import get_user
 from .digest import Digest, UnsupportedDigest, BadDigest
-from .ldpc import LDPC
+from .ldpc import LDPC, UnsupportedContainerType
 from .ldpcv import LDPCv
 from .ldpnr import LDPNR
 from .ldpr import LDPR
@@ -44,8 +44,7 @@ class LDPHandler(tornado.web.RequestHandler):
     rdf_patch_types = LDPRS.rdf_patch_types
     ldp_container_types = [str(LDP.IndirectContainer),
                            str(LDP.DirectContainer),
-                           str(LDP.BasicContainer),
-                           str(LDP.Container)]
+                           str(LDP.BasicContainer)]
     ldp_rdf_source = str(LDP.RDFSource)
     ldp_nonrdf_source = str(LDP.NonRDFSource)
     constraints_path = '/constraints.txt'
@@ -323,6 +322,8 @@ class LDPHandler(tornado.web.RequestHandler):
                 r.parse(content=self.request.body,
                         content_type=content_type,
                         context=uri)
+            except UnsupportedContainerType as e:
+                raise HTTPError(400, "Unsupported container type: %s" % (str(e)))
             except Exception as e:
                 raise HTTPError(400, "Failed to parse/add RDF: %s" % (str(e)))
             if (len(r) < 20):

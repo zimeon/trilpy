@@ -46,13 +46,11 @@ class TestAll(unittest.TestCase):
                                      'http://www.w3.org/ns/ldp#NonRDFSource']}
         self.assertRaises(HTTPError, h.request_ldp_type)
         h._request_links = {'type': ['http://www.w3.org/ns/ldp#RDFSource',
-                                     'http://www.w3.org/ns/ldp#Container']}
-        self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#Container')
-        h._request_links = {'type': ['http://www.w3.org/ns/ldp#BasicContainer',
-                                     'http://www.w3.org/ns/ldp#Container']}
+                                     'http://www.w3.org/ns/ldp#BasicContainer']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#BasicContainer')
-        h._request_links = {'type': ['http://www.w3.org/ns/ldp#Container',
-                                     'http://www.w3.org/ns/ldp#DirectContainer']}
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#BasicContainer']}
+        self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#BasicContainer')
+        h._request_links = {'type': ['http://www.w3.org/ns/ldp#DirectContainer']}
         self.assertEqual(h.request_ldp_type(), 'http://www.w3.org/ns/ldp#DirectContainer')
         # FIXME - Following should probably give HTTPError
         h._request_links = {'type': ['http://www.w3.org/ns/ldp#BasicContainer',

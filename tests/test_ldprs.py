@@ -9,7 +9,28 @@ from trilpy.namespace import LDP
 class TestAll(unittest.TestCase):
     """TestAll class to run tests."""
 
-    def test01_parse_turtle(self):
+    def test01_init(self):
+        """Test initialization."""
+        r = LDPRS()
+        self.assertTrue(isinstance(r.content, Graph))
+        r = LDPRS(content='abc')
+        self.assertEqual(r.content, 'abc')
+
+    def test02_len(self):
+        """Test len for length of content."""
+        r = LDPRS()
+        self.assertEqual(len(r), 0)
+        r.content.add((URIRef('s1'), URIRef('p1'), URIRef('o1')))
+        self.assertEqual(len(r), 1)
+
+    def test03_uriref(self):
+        """Test uriref property."""
+        r = LDPRS()
+        self.assertEqual(r.uriref, URIRef(''))
+        r = LDPRS('my-uri')
+        self.assertEqual(r.uriref, URIRef('my-uri'))
+
+    def test04_parse_turtle(self):
         """Parse turtle."""
         r = LDPRS()
         r.parse(b'<http://ex.org/a> <http://ex.org/b> "1".')
@@ -27,14 +48,14 @@ class TestAll(unittest.TestCase):
             self.assertEqual(str(p), 'http://ex.org/a')
             self.assertEqual(str(o), '123')
 
-    def test02_parse_json_ld(self):
+    def test05_parse_json_ld(self):
         """Parse JSON-LD."""
         r = LDPRS()
         r.parse(b'{ "@id": "http://ex.org/a", "http://ex.org/b": "123"}',
                 content_type='application/ld+json')
         self.assertEqual(len(r.content), 1)
 
-    def test03_patch(self):
+    def test06_patch(self):
         """Test PATCH update."""
         r = LDPRS()
         r.parse('''
@@ -58,8 +79,9 @@ class TestAll(unittest.TestCase):
         self.assertRaises(PatchFailed, r.patch, sparql_update, 'bad/type')
         # bad update command
         self.assertRaises(PatchFailed, r.patch, 'update syntax error', 'application/sparql-update')
+        # try update at attempts to change containment triples
 
-    def test04_get_container_type(self):
+    def test10_get_container_type(self):
         """Test extraction of container type."""
         r = LDPRS()
         self.assertEqual(r.get_container_type(context="http://ex.org/aa"), None)
@@ -74,7 +96,7 @@ class TestAll(unittest.TestCase):
         self.assertRaises(Exception, r.get_container_type, context="http://ex.org/aa")
         self.assertEqual(r.get_container_type(context="http://ex.org/NOT_aa"), None)
 
-    def test05_extract_containement_triples(self):
+    def test11_extract_containement_triples(self):
         """Test extraction of containment triples."""
         uri = URIRef('http://ex.org/klm')
         c1 = (uri, LDP.contains, URIRef('http://ex.org/c1'))
@@ -90,7 +112,7 @@ class TestAll(unittest.TestCase):
         self.assertIn(c1, cg)
         self.assertIn(c2, cg)
 
-    def test06_serialize(self):
+    def test20_serialize(self):
         """Test some simple serialization cases."""
         uri = URIRef('http://ex.org/ldprs')
         g = Graph()
@@ -118,7 +140,7 @@ class TestAll(unittest.TestCase):
         s = r.serialize(extra=eg)
         self.assertIn('"Wombat"', s)
 
-    def test07_add_server_managed_triples(self):
+    def test30_add_server_managed_triples(self):
         """Test addition of server manages triples to graph."""
         # CURRENTLY SAME AS JUST ADDING TYPE TRIPLES
         r = LDPRS('http://ex.org/xyz')
@@ -126,20 +148,20 @@ class TestAll(unittest.TestCase):
         r.add_server_managed_triples(g)
         self.assertEqual(len(g), 2)
 
-    def test07_add_type_triples(self):
+    def test31_add_type_triples(self):
         """Test addition of build in types to graph."""
         r = LDPRS('http://ex.org/abc')
         g = Graph()
         r.add_type_triples(g)
         self.assertEqual(len(g), 2)
 
-    def test08_media_to_rdflib_type(self):
+    def test32_media_to_rdflib_type(self):
         """Test media_ lookup and conversion."""
         r = LDPRS()
         self.assertEqual(r._media_to_rdflib_type('text/turtle'), 'turtle')
         self.assertRaises(Exception, r._media_to_rdflib_type, 'elephants')
 
-    def test09_server_managed_triples(self):
+    def test33_server_managed_triples(self):
         """Test set of server managed triples."""
         r = LDPRS('http://ex.org/cde')
         g = r.server_managed_triples()
@@ -147,12 +169,12 @@ class TestAll(unittest.TestCase):
         self.assertIn((URIRef('http://ex.org/cde'), RDF.type, LDP.RDFSource), g)
         self.assertIn((URIRef('http://ex.org/cde'), RDF.type, LDP.Resource), g)
 
-    def test10_containment_triples(self):
+    def test35_containment_triples(self):
         """Test null iterator for containment triples."""
         ct = list(LDPRS().containment_triples())
         self.assertEqual(ct, [])
 
-    def test11_triples(self):
+    def test36_triples(self):
         """Test triples()."""
         r = LDPRS()
         g = list(r.triples((None, None, URIRef('info:aaa'))))
@@ -169,7 +191,7 @@ class TestAll(unittest.TestCase):
         self.assertEqual(len(g), 1)
         self.assertEqual(g[0], (URIRef('http://ex.org/a'), URIRef('http://ex.org/b'), URIRef('info:bbb')))
 
-    def test12_compute_etag(self):
+    def test40_compute_etag(self):
         """Test computation of etag."""
         r = LDPRS()
         self.assertEqual(r._compute_etag(), 'W/"d41d8cd98f00b204e9800998ecf8427e"')
