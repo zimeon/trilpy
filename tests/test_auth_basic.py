@@ -21,3 +21,11 @@ class TestAll(unittest.TestCase):
         # Simple example
         self.assertEqual(get_user_and_password('Basic dGVzdHVzZXI6dGVzdHBhc3M='),
                          ['testuser', 'testpass'])
+
+    def test02_get_user(self):
+        """Test get_user method."""
+        users = {'a-user': 'a-password',
+                 'fedoraAdmin': 'secret'}
+        self.assertEqual(get_user('Basic dGVzdHVzZXI6dGVzdHBhc3M=', users), None)
+        self.assertEqual(get_user('Basic ZmVkb3JhQWRtaW46c2VjcmV0', users), 'fedoraAdmin')
+        self.assertEqual(get_user('Basic YS11c2VyOmEtcGFzc3dvcmQ=', users), 'a-user')
