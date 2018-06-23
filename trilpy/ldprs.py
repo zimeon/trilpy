@@ -199,12 +199,11 @@ class LDPRS(LDPR):
         return g
 
     def add_containment_triples(self, graph):
-        """Add containment triples to graph."""
-        for triple in self.containment_triples():
-            graph.add(triple)
+        """Noop version of add containment triples to graph."""
+        pass
 
     def containment_triples(self):
-        """Generator for containment triples (empty for plain LDPRS)."""
+        """Noop generator for containment triples (empty for plain LDPRS)."""
         return []
 
     def triples(self, triple_pattern):
