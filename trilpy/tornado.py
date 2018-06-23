@@ -1,12 +1,10 @@
 """Tornado app for trilpy.
 
-DEMOWARE ONLY: NO ATTEMPT AT AUTH, THREAD SAFETY, PERSISTENCE.
+DEMOWARE ONLY: NO ATTEMPT AT THREAD SAFETY, PERSISTENCE.
 """
-import itertools
 import logging
 from negotiator2 import conneg_on_accept, memento_parse_datetime
 import os.path
-import requests.utils
 import tornado.ioloop
 import tornado.web
 from urllib.parse import urljoin, urlsplit
@@ -18,6 +16,7 @@ from .ldpcv import LDPCv
 from .ldpnr import LDPNR
 from .ldpr import LDPR
 from .ldprs import LDPRS, PatchFailed, PatchIllegal
+from .links import RequestLinks, ResponseLinks
 from .namespace import LDP
 from .prefer_header import parse_prefer_return_representation
 from .store import KeyDeleted
@@ -66,7 +65,7 @@ class LDPHandler(tornado.web.RequestHandler):
         # request parsing
         self._request_links = None  # values extracted from Link: rel=".."
         # response building
-        self._links = []  # accumulate links for Link header
+        self.response_links = ResponseLinks()  # accumulate links for Link header
 
     def get_current_user(self):
         """Get current user from authentication credentials.
@@ -117,23 +116,23 @@ class LDPHandler(tornado.web.RequestHandler):
                 logging.debug("RDF response: %d triples" % (len(resource)))
             if (len(omits) > 0 or preference_applied):
                 self.set_header("Preference-Applied", "return=representation")
-        self.add_links('type', resource.rdf_types)
-        self.add_links('acl', [self.store.individual_acl(uri)])
+        self.response_links.add('type', resource.rdf_types)
+        self.response_links.add('acl', [self.store.individual_acl(uri)])
         if (resource.describes is not None):
-            self.add_links('describes', [resource.describes])
+            self.response_links.add('describes', [resource.describes])
         if (resource.describedby is not None):
-            self.add_links('describedby', [resource.describedby])
+            self.response_links.add('describedby', [resource.describedby])
         if (resource.is_ldprv):
-            self.add_links('timemap', [resource.timemap])
-            self.add_links('original timegate', [resource.uri])
-            self.add_links('type', ['http://mementoweb.org/ns#TimeGate',
+            self.response_links.add('timemap', [resource.timemap])
+            self.response_links.add('original timegate', [resource.uri])
+            self.response_links.add('type', ['http://mementoweb.org/ns#TimeGate',
                                     'http://mementoweb.org/ns#OriginalResource'])
             self.set_header("Vary", 'Accept-Datetime')
         elif (resource.is_ldpcv):
-            self.add_links('original timegate', [resource.original])  # FIXME - need this?
-            self.add_links('type', ['http://mementoweb.org/ns#TimeMap'])
+            self.response_links.add('original timegate', [resource.original])  # FIXME - need this?
+            self.response_links.add('type', ['http://mementoweb.org/ns#TimeMap'])
         elif (resource.is_ldprm):
-            self.add_links('type', ['http://mementoweb.org/ns#Memento'])
+            self.response_links.add('type', ['http://mementoweb.org/ns#Memento'])
         self.set_link_header()
         if (want_digest):
             self.set_header("Digest", want_digest.digest_value(content))
@@ -157,7 +156,7 @@ class LDPHandler(tornado.web.RequestHandler):
             raise HTTPError(405, "POST not supported on LDPRm/Memento")
         elif (not isinstance(resource, LDPC)):
             raise HTTPError(405, "Rejecting POST to non-LDPC (%s)" % (str(resource)))
-        acl_uri = self.request_acl_uri()
+        acl_uri = self.request_links.acl_uri(self.base_uri)
         datetime = None
         if (resource.is_ldpcv):
             mdt_header = self.request.headers.get('Memento-Datetime')
@@ -292,7 +291,7 @@ class LDPHandler(tornado.web.RequestHandler):
         """
         if (self.request_for_versioning() and not self.support_versioning):
             raise HTTPError(400, "Versioning is not supported")
-        model = self.request_ldp_type()
+        model = self.request_links.ldp_type
         content_type = self.request_content_type()
         content_type_is_rdf = content_type in self.rdf_media_types
         if (current_type is not None):  # Replacements
@@ -337,7 +336,7 @@ class LDPHandler(tornado.web.RequestHandler):
             rd = LDPRS(describes=r.uri)
             self.store.add(rd, rd.uri)
             r.describedby = rd.uri
-            self.add_links('describedby', [r.describedby])
+            self.response_links.add('describedby', [r.describedby])
         return(r)
 
     def patch(self):
@@ -401,7 +400,7 @@ class LDPHandler(tornado.web.RequestHandler):
             uri = self.path_to_uri(self.request.path)
             resource = self.from_store(uri)
             self.check_authz(resource, 'read')  # FIXME - do we do OPTIONS for read or write permissions?
-            self.add_links('type', resource.rdf_type_uris)
+            self.response_links.add('type', resource.rdf_type_uris)
             self.set_link_header()
             self.set_allow(resource)
         self.confirm("Options returned")
@@ -424,75 +423,17 @@ class LDPHandler(tornado.web.RequestHandler):
 
     @property
     def request_links(self):
-        """Dict of lists of Link header url values keyed by rel.
+        """Return RequestLinks object with parsed Link rel="..." header data.
 
-        Saves all data from Link rel="..." headers to avoid
-        parsing repeatedly. Note that per
-        https://tools.ietf.org/html/rfc7230#section-3.2.2
-        multiple Link headers are to be treated the same as additional
-        comma separated link-value entries as described in
-        https://tools.ietf.org/html/rfc5988#section-5
+        Cached lazy parse to avoid parsing repeatedly.
         """
-        if (self._request_links is not None):
-            return self._request_links
-        self._request_links = dict()
-        link_headers = self.request.headers.get_list('link')
-        for link_header in link_headers:
-            logging.debug("Request Link: " + link_header)
-            for link in requests.utils.parse_header_links(link_header):
-                if ('rel' in link and 'url' in link):
-                    rel = link['rel']
-                    url = link['url']
-                    if (rel not in self._request_links):
-                        self._request_links[rel] = list()
-                    if (link not in self._request_links[rel]):
-                        self._request_links[rel].append(url)
+        if self._request_links is None:
+            self._request_links = RequestLinks(self.request.headers.get_list('link'))
         return self._request_links
-
-    def request_links_rel(self, rel):
-        """List (possibly empty) of Link rel="..." headers for given rel."""
-        links = self.request_links
-        return links[rel] if (rel in links) else []
-
-    @property
-    def request_types(self):
-        """Type information from Link rel="type" headers, or empty set()."""
-        return self.request_links_rel('type')
-
-    def request_ldp_type(self):
-        """LDP interaction model URI from request Link rel="type", else None."""
-        types = self.request_types
-        # Look for LDP types starting with most specific
-        is_ldpnr = (self.ldp_nonrdf_source in types)
-        is_rdf = None
-        for rdf_type in itertools.chain(self.ldp_container_types,
-                                        [self.ldp_rdf_source]):
-            if (rdf_type in types):
-                is_rdf = rdf_type
-                break  # FIXME - ignoring possible container type conflicts
-        # Error conditions
-        if (is_ldpnr and is_rdf):
-            raise HTTPError(400, "Conflicting LDP types in Link headers")
-        elif (is_ldpnr):
-            return(self.ldp_nonrdf_source)
-        else:
-            return(is_rdf)
-
-    def request_acl_uri(self):
-        """ACL URI in request header else None, must be local if specified."""
-        acls = self.request_links_rel('acl')
-        if (len(acls) == 0):
-            return None
-        if (len(acls) > 1):
-            raise HTTPError(400, 'Multiple Link rel="acl" in request')
-        acl_uri = acls[0]
-        if (not acl_uri.startswith(self.base_uri)):  # FIXME - need better test
-            raise HTTPError(400, 'Non-local acl rel="acl" specified')
-        return acl_uri
 
     def request_for_versioning(self):
         """True if request specifies versioning through Link rel="type"."""
-        types = self.request_types
+        types = self.request_links.types
         return('http://mementoweb.org/ns#OriginalResource' in types)
 
     def check_digest(self):
@@ -607,28 +548,17 @@ class LDPHandler(tornado.web.RequestHandler):
                 self.set_header('Accept-Post', ', '.join(self.rdf_media_types))
         self.set_header('Allow', ', '.join(methods))
 
-    def add_links(self, rel, uris):
-        """Add rel uris to list used for Link header.
-
-        set_link_header() must be called after all links have been added
-        to actually write out the header.
-        """
-        for uri in uris:
-            link = '<%s>; rel="%s"' % (uri, rel)
-            if link not in self._links:
-                self._links.append(link)
-
     def set_link_header(self):
         """Add Link header based on accumulated links from add_links()."""
         # FIXME - Add a constrainedBy link in all responses until resolution of
         # https://github.com/fcrepo/fcrepo-specification/issues/380 . This is
         # legal per LDP https://www.w3.org/TR/ldp/#ldpr-gen-pubclireqs
         # but not sure whether it is best practice
-        self.add_links('http://www.w3.org/ns/ldp#constrainedBy',
-                       [self.path_to_uri(self.constraints_path)])
-        if (len(self._links) > 0):
-            logging.debug('Link: ' + ', '.join(self._links))
-            self.set_header('Link', ', '.join(self._links))
+        self.response_links.add('http://www.w3.org/ns/ldp#constrainedBy',
+                                [self.path_to_uri(self.constraints_path)])
+        if (len(self.response_links) > 0):
+            logging.debug('Link: ' + self.response_links.header)
+            self.set_header('Link', self.response_links.header)
 
     def write_error(self, status_code, **kwargs):
         """Plain text error message (nice with curl).
@@ -638,9 +568,9 @@ class LDPHandler(tornado.web.RequestHandler):
         <https://www.w3.org/TR/ldp/#ldpr-gen-pubclireqs>
         and servers MAY add this header indescriminately.
         """
-        self._links = []
-        self.add_links('http://www.w3.org/ns/ldp#constrainedBy',
-                       [self.path_to_uri(self.constraints_path)])
+        self.response_links = ResponseLinks()
+        self.response_links.add('http://www.w3.org/ns/ldp#constrainedBy',
+                                [self.path_to_uri(self.constraints_path)])
         self.set_link_header()
         self.set_header('Content-Type', 'text/plain')
         self.finish(str(status_code) + ' - ' + self._reason + "\n")
