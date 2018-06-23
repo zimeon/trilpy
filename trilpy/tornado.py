@@ -495,14 +495,6 @@ class LDPHandler(RequestHandler):
             return(default_type)
         return(acceptable.content_type.mimetype())
 
-    def path_to_uri(self, path):
-        """Resource URI from server path."""
-        uri = urljoin(self.base_uri, path)
-        # Normalize base_uri/ to base_uri
-        if (uri == (self.base_uri + '/')):
-            uri = self.base_uri
-        return(uri)
-
     def from_store(self, uri):
         """Get resource from store, raise 404 or 410 if not present."""
         try:
@@ -511,6 +503,14 @@ class LDPHandler(RequestHandler):
             raise HTTPError(410, "Resource has been deleted")
         except KeyError:
             raise HTTPError(404, "Resource not found")
+
+    def path_to_uri(self, path):
+        """Resource URI from server path."""
+        uri = urljoin(self.base_uri, path)
+        # Normalize base_uri/ to base_uri
+        if (uri == (self.base_uri + '/')):
+            uri = self.base_uri
+        return(uri)
 
     def uri_to_path(self, uri):
         """Resource local path (with /) from URI."""

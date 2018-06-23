@@ -1,11 +1,14 @@
 """Tornado server tests."""
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, call
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import Application, HTTPError
 from tornado.httpserver import HTTPRequest
 from tornado.httputil import HTTPHeaders
 
+from trilpy.ldpc import LDPC
+from trilpy.ldpnr import LDPNR
+from trilpy.ldprs import LDPRS
 from trilpy.links import RequestLinks, ResponseLinks
 from trilpy.store import Store
 from trilpy.tornado import make_app, HTTPError, LDPHandler, StatusHandler
@@ -49,9 +52,58 @@ class TestLDPHandler(unittest.TestCase):
         h = mockedLDPHandler(headers={'Authorization': 'Basic YS11c2VyOmEtcGFzc3dvcmQ='})
         self.assertEqual(h.get_current_user(), None)
 
-    def zztest50_confirm(self):
+    def test43_from_store(self):
+        """Test from_store method."""
+        h = mockedLDPHandler()
+        h.store = Store('http://localhost/')
+        self.assertRaises(HTTPError, h.from_store, 'uri:abc')
+        r = LDPNR(content=b'hello')
+        h.store.add(r, uri='uri:abc')
+        self.assertEqual(h.from_store('uri:abc'), r)
+        h.store.delete(uri='uri:abc')
+        self.assertRaises(HTTPError, h.from_store, 'uri:abc')
+
+    def test44_path_to_uri(self):
+        """Test uri_to_path method."""
+        h = mockedLDPHandler()
+        h.base_uri = 'http://localhost:8000'
+        self.assertEqual(h.path_to_uri(''), 'http://localhost:8000')
+        self.assertEqual(h.path_to_uri('/'), 'http://localhost:8000')
+        self.assertEqual(h.path_to_uri('/abc'), 'http://localhost:8000/abc')
+
+    def test45_uri_to_path(self):
+        """Test uri_to_path method."""
+        h = mockedLDPHandler()
+        self.assertEqual(h.uri_to_path('http://localhost:8000'), '/')
+        self.assertEqual(h.uri_to_path('http://localhost:8000/'), '/')
+        self.assertEqual(h.uri_to_path('http://localhost:8000/abc'), '/abc')
+        self.assertEqual(h.uri_to_path('http://localhost:8000/abc/'), '/abc/')
+
+    def test46_set_allow(self):
+        """Test set_allow method."""
+        h = mockedLDPHandler()
+        h.support_delete = False
+        h.set_header = MagicMock()
+        h.set_allow()
+        h.set_header.assert_called_with('Allow', 'GET, HEAD, OPTIONS, PUT')
+        h.support_delete = True
+        h.set_header = MagicMock()
+        h.set_allow()
+        h.set_header.assert_called_with('Allow', 'GET, HEAD, OPTIONS, PUT, DELETE')
+        # add different resources
+        h.set_header = MagicMock()
+        h.set_allow(LDPRS())
+        h.set_header.assert_has_calls([call('Accept-Patch', 'application/sparql-update'),
+                                       call('Allow', 'GET, HEAD, OPTIONS, PUT, DELETE, PATCH')])
+        h.set_header = MagicMock()
+        h.set_allow(LDPC())
+        h.set_header.assert_has_calls([call('Accept-Patch', 'application/sparql-update'),
+                                       call('Accept-Post', 'text/turtle, application/ld+json'),
+                                       call('Allow', 'GET, HEAD, OPTIONS, PUT, DELETE, PATCH, POST')])
+
+    def test50_confirm(self):
         """Test confirm method."""
-        h = LDPHandler(Application(), Mock())
+        h = mockedLDPHandler()
         h.write = MagicMock()
         h.set_header = MagicMock()
         h.confirm("blah!", 987)
@@ -72,7 +124,7 @@ class TestApp(AsyncHTTPTestCase):
 
     def get_app(self):
         """Get trilpy application with some basic config."""
-        return make_app(store=Store('http://localhost/'))
+        return make_app(store=Store('http://localhost/'), no_auth=True)
 
     def test01_ldphandler(self):
         """Test LDPHandler."""
