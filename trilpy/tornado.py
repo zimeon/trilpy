@@ -6,7 +6,7 @@ import logging
 from negotiator2 import conneg_on_accept, memento_parse_datetime
 import os.path
 import tornado.ioloop
-import tornado.web
+from tornado.web import RequestHandler, HTTPError, StaticFileHandler, Application
 from urllib.parse import urljoin, urlsplit
 
 from .auth_basic import get_user
@@ -22,13 +22,7 @@ from .prefer_header import parse_prefer_return_representation
 from .store import KeyDeleted
 
 
-class HTTPError(tornado.web.HTTPError):
-    """HTTP Error class for non-2xx responses."""
-
-    pass
-
-
-class LDPHandler(tornado.web.RequestHandler):
+class LDPHandler(RequestHandler):
     """LDP and Fedora request handler."""
 
     store = None
@@ -55,12 +49,9 @@ class LDPHandler(tornado.web.RequestHandler):
         """Set up place to accumulate links for Link header."""
         logging.debug('___request____________________________')
         logging.debug("%s %s" % (self.request.method, self.request.path))
-        try:
-            for header_name in self.request.headers:
-                for header in self.request.headers.get_list(header_name):
-                    logging.debug("%s: %s" % (header_name, header))
-        except:
-            pass  # FIXME - correct mock request object in test_tornado.py
+        for header_name in self.request.headers:
+            for header in self.request.headers.get_list(header_name):
+                logging.debug("%s: %s" % (header_name, header))
         logging.debug('___handling_&_response________________')
         # request parsing
         self._request_links = None  # values extracted from Link: rel=".."
@@ -581,7 +572,7 @@ class LDPHandler(tornado.web.RequestHandler):
         self.write(str(status_code) + ' - ' + txt + "\n")
 
 
-class StatusHandler(tornado.web.RequestHandler):
+class StatusHandler(RequestHandler):
     """Server status report handler."""
 
     store = None
@@ -605,10 +596,8 @@ class StatusHandler(tornado.web.RequestHandler):
 def make_app():
     """Create Trilpy Tornado application."""
     static_path = os.path.join(os.path.dirname(__file__), 'static')
-    return tornado.web.Application([
-        (r"/(favicon\.ico|constraints.txt)",
-            tornado.web.StaticFileHandler,
-            {'path': static_path}),
+    return Application([
+        (r"/(favicon\.ico|constraints.txt)", StaticFileHandler, {'path': static_path}),
         (r"/status", StatusHandler),
         (r".*", LDPHandler),
     ])
