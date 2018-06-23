@@ -52,6 +52,75 @@ class TestLDPHandler(unittest.TestCase):
         h = mockedLDPHandler(headers={'Authorization': 'Basic YS11c2VyOmEtcGFzc3dvcmQ='})
         self.assertEqual(h.get_current_user(), None)
 
+    def test34_request_content_type(self):
+        """Test request_content_type method."""
+        # no header -> 400
+        h = mockedLDPHandler()
+        self.assertRaises(HTTPError, h.request_content_type)
+        # one ...
+        h = mockedLDPHandler(headers={'Content-Type': 'a/b; charset="wierdo"'})
+        self.assertEqual(h.request_content_type(), 'a/b')
+        h = mockedLDPHandler(headers={'Content-Type': 'c/d'})
+        self.assertEqual(h.request_content_type(), 'c/d')
+        # multiple -> 400
+        hh = HTTPHeaders()
+        hh.add('Content-Type', 'a/b')
+        hh.add('Content-Type', 'c/d')
+        h = mockedLDPHandler(headers=hh)
+        self.assertRaises(HTTPError, h.request_content_type)
+
+    def test36_is_request_for_versioning(self):
+        """Test is_request_for_versioning property."""
+        # no header -> False
+        h = mockedLDPHandler()
+        self.assertFalse(h.is_request_for_versioning)
+        # other links
+        h = mockedLDPHandler(headers={'Link': '<a>; rel="type", <http://mementoweb.org/ns#OriginalResource>; rel="other"'})
+        self.assertFalse(h.is_request_for_versioning)
+        # yes
+        h = mockedLDPHandler(headers={'Link': '<a>; rel="other", <http://mementoweb.org/ns#OriginalResource>; rel="type"'})
+        self.assertTrue(h.is_request_for_versioning)
+
+    def test37_check_digest(self):
+        """Test check_digest method."""
+        # no header -> None
+        h = mockedLDPHandler()
+        self.assertEqual(h.check_digest(), None)
+        # header with good digest
+        h = mockedLDPHandler(headers={'Digest': 'md5=XUFAKrxLKna5cZ2REBfFkg=='}, body=b'hello')
+        self.assertEqual(h.check_digest(), None)
+        # header with bad digest
+        h = mockedLDPHandler(headers={'Digest': 'md5=not-right'}, body=b'hello')
+        self.assertRaises(HTTPError, h.check_digest)
+        # header with unsupported digest
+        h = mockedLDPHandler(headers={'Digest': 'unsupported=whatever'}, body=b'hello')
+        self.assertRaises(HTTPError, h.check_digest)
+
+    def test38_check_want_digest(self):
+        """Test check_want_digest method."""
+        # no header -> None
+        h = mockedLDPHandler()
+        self.assertEqual(h.check_want_digest(), None)
+        # header with good digest request
+        h = mockedLDPHandler(headers={'Want-Digest': 'md5'})
+        self.assertEqual(h.check_want_digest().want_digest, 'md5')
+        # header with unsuppported digest and bad request header
+        h = mockedLDPHandler(headers={'Want-Digest': 'special'})
+        self.assertRaises(HTTPError, h.check_want_digest)
+        h = mockedLDPHandler(headers={'Want-Digest': ';'})
+        self.assertRaises(HTTPError, h.check_want_digest)
+
+    def test40_check_authz(self):
+        """Test check_authz method (just a stub)."""
+        # auth disabled
+        LDPHandler.no_auth = True
+        h = mockedLDPHandler()
+        h.check_authz(None, 'write')
+        # auth enabled, no admin
+        LDPHandler.no_auth = False
+        h = mockedLDPHandler()
+        self.assertRaises(HTTPError, h.check_authz, LDPRS('uri:a'), 'write')
+
     def test43_from_store(self):
         """Test from_store method."""
         h = mockedLDPHandler()
@@ -109,6 +178,42 @@ class TestLDPHandler(unittest.TestCase):
         h.confirm("blah!", 987)
         h.write.assert_called_with('987 - blah!\n')
         h.set_header.assert_called_with('Content-Type', 'text/plain')
+
+
+def mockedStatusHandler(method='GET', uri='/status', headers=None, body=None):
+    """StatsusHandler with appropriate Application and HTTPRequest mocking."""
+    if headers is not None:
+        headers = HTTPHeaders(headers)
+    request = HTTPRequest(method=method, uri=uri, headers=headers, body=body,
+                          connection=Mock())
+    return StatusHandler(Application(), request)
+
+
+class TestStatusHandler(unittest.TestCase):
+    """TestStatusHandler class to run tests on StatusHandler."""
+
+    def test01_create_and_initialize(self):
+        """Create StatusHandler object."""
+        h = mockedStatusHandler()
+        self.assertTrue(h)
+
+    def test02_get(self):
+        """Test with data in store."""
+        h = mockedStatusHandler()
+        h.store = Store('uri:')
+        r = LDPNR(content=b'hello')
+        h.store.add(r, uri='uri:abc1')
+        h.store.delete(uri='uri:abc1')
+        h.store.add(r, uri='uri:abc2')
+        h.store.add(Exception(), uri='uri:abc3')  # Exception does not have type_label property
+        h.write = MagicMock()
+        h.get()
+        h.write.assert_has_calls([call('Store has\n'),
+                                  call('  * 2 active resources\n'),
+                                  call('    * uri:abc2 - LDPNR\n'),
+                                  call("    * uri:abc3 - <class 'Exception'>\n"),
+                                  call('  * 1 deleted resources\n'),
+                                  call('    * uri:abc1 - deleted\n')])
 
 
 class TestApp(AsyncHTTPTestCase):

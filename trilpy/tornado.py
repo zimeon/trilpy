@@ -171,7 +171,7 @@ class LDPHandler(RequestHandler):
             new_resource.original = resource.original
             new_resource.timemap = resource.uri
         new_uri = self.store.add(new_resource, context=uri, slug=slug)
-        if (self.request_for_versioning()):
+        if self.is_request_for_versioning:
             tm = LDPCv(uri=None, original=new_uri)
             tm_uri = self.store.add(tm)  # no naming advice
             logging.debug("POST Versioned request, timemap=%s" % (tm.uri))
@@ -227,7 +227,7 @@ class LDPHandler(RequestHandler):
         else:
             # New resource
             self.store.add(resource, uri)
-            if (self.request_for_versioning()):
+            if self.is_request_for_versioning:
                 tm = LDPCv(uri=None, original=r)
                 tm_uri = self.store.add(tm)  # no naming advice
                 logging.debug("PUT Versioned request, timemap=%s" % (tm.uri))
@@ -280,7 +280,7 @@ class LDPHandler(RequestHandler):
 
         Returns resource object or raises HTTPError.
         """
-        if (self.request_for_versioning() and not self.support_versioning):
+        if self.is_request_for_versioning and not self.support_versioning:
             raise HTTPError(400, "Versioning is not supported")
         model = self.request_links.ldp_type
         content_type = self.request_content_type()
@@ -399,7 +399,7 @@ class LDPHandler(RequestHandler):
     def request_content_type(self):
         """Return the request content type.
 
-        400 if there are multiple headers specified.
+        400 if there are multiple or no headers specified.
 
         FIXME - Simply strips any charset information.
         """
@@ -422,7 +422,8 @@ class LDPHandler(RequestHandler):
             self._request_links = RequestLinks(self.request.headers.get_list('link'))
         return self._request_links
 
-    def request_for_versioning(self):
+    @property
+    def is_request_for_versioning(self):
         """True if request specifies versioning through Link rel="type"."""
         types = self.request_links.types
         return('http://mementoweb.org/ns#OriginalResource' in types)
@@ -433,6 +434,8 @@ class LDPHandler(RequestHandler):
         Follows https://tools.ietf.org/html/rfc3230. Will take the only the first
         Digest header if multiple are specified. Per the Fedora API specification,
         will report a 400 error if any digest type specified is not supported.
+
+        Simply returns if either there is no digest or it is good.
         """
         digest_header = self.request.headers.get("Digest")
         if (digest_header is None):
@@ -472,28 +475,6 @@ class LDPHandler(RequestHandler):
             logging.debug("check_authz: %s for %s %s" % (str(user), resource.uri, access_type))
         if (user != 'fedoraAdmin'):  # FIXME -- Add some real check of ACLs!
             raise HTTPError(403, 'Access denied (user %s, perms %s)' % (str(user), access_type))
-
-    def conneg(self, supported_types):
-        """Return content_type for response by conneg.
-
-        Based on an update of the negotiate package from
-        2013.
-        """
-        default_type = supported_types[0]
-        accept_header = self.request.headers.get("Accept")
-        if (accept_header is None):
-            return(default_type)
-        default_params = AcceptParameters(
-            ContentType(default_type))
-        acceptable = []
-        for t in supported_types:
-            acceptable.append(AcceptParameters(
-                ContentType(t)))
-        cn = ContentNegotiator(default_params, acceptable)
-        acceptable = cn.negotiate(accept=accept_header)
-        if (acceptable is None):
-            return(default_type)
-        return(acceptable.content_type.mimetype())
 
     def from_store(self, uri):
         """Get resource from store, raise 404 or 410 if not present."""
