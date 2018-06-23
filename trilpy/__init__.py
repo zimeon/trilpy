@@ -13,5 +13,5 @@ from .namespace import LDP, ACL
 
 __version__ = '0.0.3'
 
-if sys.version_info < (3, 3):
+if sys.version_info < (3, 3):  # pragma: no cover
     raise Exception("Must use python 3.3 or greater (probably)!")
