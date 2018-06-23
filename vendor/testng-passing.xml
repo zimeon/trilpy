@@ -65,11 +65,11 @@
         <methods>
           <exclude name="supportPatch"/>
           <exclude name="ldpPatchContentTypeSupport"/>
-          <exclude name="serverManagedPropertiesModification"/>
+          <exclude name="serverManagedPropertiesModification"/> <!-- bad test: https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/94-->
           <exclude name="statementNotPersistedResponseBody"/>
           <exclude name="statementNotPersistedConstrainedBy"/>
           <exclude name="disallowChangeResourceType"/>
-	</methods>
+        </methods>
       </class>
       <class name="org.fcrepo.spec.testsuite.crud.HttpDelete"/>
       <class name="org.fcrepo.spec.testsuite.crud.ExternalBinaryContent">
