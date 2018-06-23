@@ -72,11 +72,7 @@ class TestApp(AsyncHTTPTestCase):
 
     def get_app(self):
         """Get trilpy application with some basic config."""
-        store = Store('http://localhost/')
-        LDPHandler.store = store
-        LDPHandler.base_uri = store.base_uri
-        StatusHandler.store = store
-        return make_app()
+        return make_app(store=Store('http://localhost/'))
 
     def test01_ldphandler(self):
         """Test LDPHandler."""

@@ -593,8 +593,19 @@ class StatusHandler(RequestHandler):
             self.write("    * %s - %s\n" % (name, 'deleted'))
 
 
-def make_app():
-    """Create Trilpy Tornado application."""
+def make_app(store, **ldphandler_config):
+    """Create Trilpy Tornado application.
+
+    store is the data store for the application
+
+    ldphandler_config is a set of keyword arguments used to set the
+    class attributed of LDPHandler.
+    """
+    LDPHandler.store = store
+    LDPHandler.base_uri = store.base_uri
+    StatusHandler.store = store
+    for name, value in ldphandler_config.items():
+        setattr(LDPHandler, name, value)
     static_path = os.path.join(os.path.dirname(__file__), 'static')
     return Application([
         (r"/(favicon\.ico|constraints.txt)", StaticFileHandler, {'path': static_path}),
@@ -603,16 +614,14 @@ def make_app():
     ])
 
 
-def run(port, store, no_auth=False, support_put=True, support_delete=True, require_if_match_etag=True):
-    """Run LDP server on port with given store and options."""
-    LDPHandler.store = store
-    LDPHandler.no_auth = no_auth
-    LDPHandler.support_put = support_put
-    LDPHandler.support_delete = support_delete
-    LDPHandler.require_if_match_etag = require_if_match_etag
-    LDPHandler.base_uri = store.base_uri
-    StatusHandler.store = store
-    app = make_app()
+def run(port, store, **ldphandler_config):
+    """Run LDP server on port with given store and options.
+
+    port is the port to run the application on
+
+    store and **ldphandler_config are simply passed on to make_app().
+    """
+    app = make_app(store, **ldphandler_config)
     logging.info("Running trilpy on http://localhost:%d" % (port))
     app.listen(port)
     try:
