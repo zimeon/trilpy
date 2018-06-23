@@ -4,6 +4,7 @@ from rdflib import Namespace
 
 LDP = Namespace('http://www.w3.org/ns/ldp#')
 ACL = Namespace('http://www.w3.org/ns/auth/acl#')
+EX = Namespace('http://example.org/')
 
 # class Graph(Graph_rdflib):
 #

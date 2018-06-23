@@ -96,22 +96,6 @@ class TestAll(unittest.TestCase):
         self.assertRaises(Exception, r.get_container_type, context="http://ex.org/aa")
         self.assertEqual(r.get_container_type(context="http://ex.org/NOT_aa"), None)
 
-    def test11_extract_containement_triples(self):
-        """Test extraction of containment triples."""
-        uri = URIRef('http://ex.org/klm')
-        c1 = (uri, LDP.contains, URIRef('http://ex.org/c1'))
-        c2 = (uri, LDP.contains, URIRef('http://ex.org/c2'))
-        g = Graph()
-        g.add(c1)
-        g.add(c2)
-        g.add((uri, RDF.type, URIRef('http://ex.org/some_type')))
-        r = LDPRS(content=g)
-        cg = r.extract_containment_triples()
-        self.assertEqual(len(r.content), 1)
-        self.assertEqual(len(cg), 2)
-        self.assertIn(c1, cg)
-        self.assertIn(c2, cg)
-
     def test20_serialize(self):
         """Test some simple serialization cases."""
         uri = URIRef('http://ex.org/ldprs')
@@ -168,11 +152,6 @@ class TestAll(unittest.TestCase):
         self.assertEqual(len(g), 2)
         self.assertIn((URIRef('http://ex.org/cde'), RDF.type, LDP.RDFSource), g)
         self.assertIn((URIRef('http://ex.org/cde'), RDF.type, LDP.Resource), g)
-
-    def test35_containment_triples(self):
-        """Test null iterator for containment triples."""
-        ct = list(LDPRS().containment_triples())
-        self.assertEqual(ct, [])
 
     def test36_triples(self):
         """Test triples()."""

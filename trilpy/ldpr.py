@@ -14,6 +14,8 @@ class LDPR(object):
     def __init__(self, uri=None, content=b'', acl=None):
         """Initialize LDPR.
 
+        uri is a URI expressed as a string (not a URIRef)
+
         content is expected to be in bytes not unicode
         """
         # LDP properties

@@ -89,7 +89,7 @@ class LDPRS(LDPR):
     def patch(self, patch, content_type):
         """Update this object with specifed patch that has given content_type.
 
-        Will raise PatchException and make no changed to the stored
+        Will raise PatchFailed (or subclass) and make no changed to the stored
         data if the patch cannot be applied. Otherwise updates this
         object's content.
 
@@ -105,15 +105,17 @@ class LDPRS(LDPR):
             g.update(patch)
         except pyparsing.ParseException as e:
             raise PatchFailed("Failed to apply patch (bad patch data)")
-        # Check for attempt to modify containment triples
-        added_ct = self.extract_containment_triples(g)
-        existing_ct = Graph()
-        for triple in self.containment_triples():
-            existing_ct.add(triple)
-        if (len(existing_ct + added_ct) != len(existing_ct)):
-            raise PatchIllegal("Attempt to modify containment triples")
+        # check result and raise PatchIllegal if bad
+        self.patch_result_prune_check(g)
         # success
         self.content = g
+
+    def patch_result_prune_check(self, g):
+        """Noop implementation of PATCH result pruning and check.
+
+        This method will be overriden in LDPC.
+        """
+        pass
 
     def get_container_type(self, context, default=None):
         """Find LDP container type from data supplied.
@@ -151,22 +153,6 @@ class LDPRS(LDPR):
             logging.debug("type: %s" % (str(o)))
         return types
 
-    def extract_containment_triples(self, content=None):
-        """Extract and return set of containment triples from content.
-
-        If content is not specified then modify self.content.
-
-        We store containment triples as server managed so we do
-        not want these duplicated in the content.
-        """
-        ctriples = Graph()
-        if (content is None):
-            content = self.content
-        for (s, p, o) in content.triples((None, LDP.contains, None)):
-            ctriples.add((s, p, o))
-            content.remove((s, p, o))
-        return ctriples
-
     def serialize(self, content_type='text/turtle', omits=None, extra=None):
         """Serialize this resource in given format.
 
@@ -202,14 +188,6 @@ class LDPRS(LDPR):
         g = Graph()
         self.add_server_managed_triples(g)
         return g
-
-    def containment_triples(self):
-        """Noop generator for containment triples (empty for plain LDPRS).
-
-        Needed here so that we can implement patch here that will also
-        work with LDPC sub-class.
-        """
-        return []
 
     def triples(self, triple_pattern):
         """Iterator over triples in LDPRS content matching triple pattern.

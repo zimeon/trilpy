@@ -3,7 +3,8 @@ import unittest
 from rdflib import Graph, URIRef, Literal
 from rdflib.namespace import RDF
 from trilpy.ldpc import LDPC, UnsupportedContainerType
-from trilpy.namespace import LDP
+from trilpy.ldpc import PatchIllegal
+from trilpy.namespace import LDP, EX
 
 
 class TestAll(unittest.TestCase):
@@ -23,11 +24,51 @@ class TestAll(unittest.TestCase):
         # Bad type
         self.assertRaises(UnsupportedContainerType, LDPC, container_type=LDP.UNKNOWNContainer)
 
-    def test02_add_server_managed_triples(self):
+    def test02_patch_result_prune_check(self):
+        """Test patch_result_check used by LDPRS.patch."""
+        g1 = Graph()
+        g1.add((EX.self, EX.whatever, EX.a))
+        r = LDPC(uri=str(EX.self), content=g1)
+        r.add_contained(EX.b)
+        r.add_contained(EX.c)
+        # Legal -- empty result -> no containment triples in result
+        g2 = Graph()
+        self.assertEqual(r.patch_result_prune_check(g2), None)
+        # Legal -- included same contains triples, others triples may differ
+        g2 = Graph()
+        g2.add((EX.self, LDP.contains, EX.b))
+        g2.add((EX.self, LDP.contains, EX.c))
+        g2.add((EX.self, EX.whatevs, EX.d))
+        self.assertEqual(r.patch_result_prune_check(g2), None)
+        # Illegal - extra containment triple in result
+        g2 = Graph()
+        g2.add((EX.self, LDP.contains, EX.c))  # same
+        g2.add((EX.self, LDP.contains, EX.d))  # new -- BAD
+        self.assertRaises(PatchIllegal, r.patch_result_prune_check, g2)
+
+    def test03_extract_containement_triples(self):
+        """Test extraction of containment triples."""
+        c1 = (EX.self, LDP.contains, EX.c1)
+        c2 = (EX.self, LDP.contains, EX.c2)
+        c3 = (EX.self, RDF.type, EX.SomeType)
+        g = Graph()
+        g.add(c1)
+        g.add(c2)
+        g.add(c3)
+        r = LDPC(uri=str(EX.self), content=g)
+        cg = r.extract_containment_triples()
+        self.assertEqual(len(r.content), 1)
+        self.assertIn(c3, r.content)
+        self.assertEqual(len(cg), 2)
+        self.assertIn(c1, cg)
+        self.assertIn(c2, cg)
+        self.assertNotIn(c3, cg)
+
+    def test10_add_server_managed_triples(self):
         """Test addition of server managed triples to RDF."""
         pass
 
-    def test03_add_containment_triples(self):
+    def test11_add_containment_triples(self):
         """Test addition of containment triples to RDF."""
         r = LDPC('uri:self-act')
         g = Graph()
@@ -39,7 +80,7 @@ class TestAll(unittest.TestCase):
         self.assertEqual(len(g), 2)
         self.assertIn((URIRef('uri:self-act'), LDP.contains, URIRef('uri:act1')), list(r.containment_triples()))
 
-    def test04_add_membership_triples(self):
+    def test12_add_membership_triples(self):
         """Test addition of member triples to RDF."""
         r = LDPC('uri:self-amt')
         g = Graph()
@@ -52,7 +93,7 @@ class TestAll(unittest.TestCase):
         self.assertEqual(len(g), 1)
         self.assertIn((URIRef('uri:self-amt'), LDP.member, URIRef('uri:mem1')), list(r.membership_triples()))
 
-    def test05_containment_triples(self):
+    def test13_containment_triples(self):
         """Test generation of containment triples."""
         r = LDPC()
         ct = list(r.containment_triples())
@@ -61,20 +102,20 @@ class TestAll(unittest.TestCase):
         ct = list(r.containment_triples())
         self.assertEqual(len(ct), 1)
 
-    def test06_membership_triples(self):
+    def test14_membership_triples(self):
         """Test generation of membership triples."""
         r = LDPC()
         mt = list(r.membership_triples())
         self.assertEqual(len(mt), 0)
 
-    def test07_rdf_types(self):
+    def test15_rdf_types(self):
         """Test RDF types."""
         r = LDPC()
         self.assertIn(LDP.Resource, r.rdf_types)
         self.assertIn(LDP.RDFSource, r.rdf_types)
         self.assertIn(LDP.BasicContainer, r.rdf_types)
 
-    def test10_add_del_contains(self):
+    def test16_add_del_contains(self):
         """Test addition and deletion of containment triples."""
         r = LDPC('uri:self-con')
         r.add_contained('uri:c1')

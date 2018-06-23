@@ -590,7 +590,7 @@ class TestFedora(TCaseWithSetup):
         """Check implementations MUST support PATCH."""
         r = self.post(self.rooturi,
                       headers={'Content-Type': 'text/turtle',
-                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                               'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'},
                       data='''
                            @prefix x: <http://example.org/> .
                            x:simeon x:has x:pizza .
@@ -618,7 +618,15 @@ class TestFedora(TCaseWithSetup):
                        headers={'Content-Type': 'application/sparql-update'},
                        data=patch_data)
         self.assertEqual(r.status_code, 200)
-        # Attempt to change containment triples
+        # Check result
+        r = self.get(uri)
+        g = Graph()
+        g.parse(format='turtle', data=r.content)
+        self.assertIn((URIRef('http://example.org/simeon'),
+                       URIRef('http://example.org/ate'),
+                       URIRef('http://example.org/pizza')),
+                      g)
+        # Attempt to change containment triples (currently none, add one)
         r = self.patch(uri,
                        headers={'Content-Type': 'application/sparql-update'},
                        data='''

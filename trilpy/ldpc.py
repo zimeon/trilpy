@@ -1,7 +1,7 @@
 """An LDPC - LDP Container."""
-from rdflib import URIRef
+from rdflib import Graph, URIRef
 
-from .ldprs import LDPRS
+from .ldprs import LDPRS, PatchIllegal
 from .namespace import LDP
 
 
@@ -33,6 +33,41 @@ class LDPC(LDPRS):
         self.members = set()
         self.membership_predicate = LDP.member
         self.type_label = 'LDPC'
+
+    def patch_result_prune_check(self, graph):
+        """Prune containment triples from result of PATCH graph and check for illegal modifications.
+
+        Check for attempt to modify containment triples. It is OK if the result of PATCH
+        doesn't include the containment triples because they will be preserved anyway.
+        However, it is illegal to add any new containment triples.
+
+        SIDE EFFECT - graph is modified to remove the containment triples
+        """
+        patch_ct = self.extract_containment_triples(graph)
+        existing_ct = Graph()
+        for triple in self.containment_triples():
+            existing_ct.add(triple)
+        if (len(existing_ct + patch_ct) != len(existing_ct)):
+            raise PatchIllegal("Attempt to modify containment triples")
+
+    def extract_containment_triples(self, content=None):
+        """Extract graph of containment triples from content.
+
+        If content is not specified then modify self.content.
+
+        We store containment triples as server managed so we do
+        not want these duplicated in the content.
+        """
+        ctriples = Graph()
+        if (content is None):
+            content = self.content
+        # FIXME - Should we test for s == self.uriref ? Or should any triple with
+        # the containment_predicate be rejected? For now reject any as otherwise
+        # we fail the FedoraAPITestSuite 3.7.1 test.
+        for (s, p, o) in content.triples((None, self.containment_predicate, None)):
+            ctriples.add((s, p, o))
+            content.remove((s, p, o))
+        return ctriples
 
     def add_server_managed_triples(self, graph, omits=None):
         """Add RDF triples from the server.
