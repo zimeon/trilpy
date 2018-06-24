@@ -156,6 +156,7 @@ class LDPHandler(RequestHandler):
                     datetime = memento_parse_datetime(mdt_header)
                 except ValueError:
                     HTTPError(401, "Bad Memento-Datetime header")
+        slug = self.request.headers.get('Slug')
         if (resource.is_ldpcv and not datetime):
             # Request to create LDPRm/Memento with copy of LDPRv content
             ldprv = self.store[resource.original]
@@ -163,14 +164,20 @@ class LDPHandler(RequestHandler):
             new_resource.content = ldprv.content
             if (isinstance(ldprv, LDPNR)):
                 new_resource.content_type = ldprv.content_type
+            new_uri = self.store.add(new_resource, context=uri, slug=slug)
         else:
-            new_resource = self.put_post_resource(uri)
-        slug = self.request.headers.get('Slug')
+            # Store dummy resource in order to get new_uri to parse
+            # any input RDF with put_post_resource
+            # FIXME - Perhaps should have some way to reserve new resource location?
+            new_uri = self.store.add(LDPR(), context=uri, slug=slug)
+            new_resource = self.put_post_resource(new_uri)
+            new_resource.uri = new_uri
+            self.store.update(new_resource)
         if (resource.is_ldpcv):
             # Request to create LDPRm/Memento
             new_resource.original = resource.original
             new_resource.timemap = resource.uri
-        new_uri = self.store.add(new_resource, context=uri, slug=slug)
+            self.store.update(new_resource)
         if self.is_request_for_versioning:
             tm = LDPCv(uri=None, original=new_uri)
             tm_uri = self.store.add(tm)  # no naming advice
@@ -278,6 +285,11 @@ class LDPHandler(RequestHandler):
         Handles both RDF and Non-RDF sources. Look first at the Link header
         to determine the requested LDP interaction model.
 
+        When parsing RDF resources it is important that uri is the correct
+        URI of the resource being created or updated. In the case of POST this
+        must NOT be the container URI else <> in the incoming RDF will be
+        interpretted incorrectly.
+
         Returns resource object or raises HTTPError.
         """
         if self.is_request_for_versioning and not self.support_versioning:
@@ -368,7 +380,7 @@ class LDPHandler(RequestHandler):
             # Remove versioning from original, remove Memento
             ldprv = self.store[resource.original]
             ldprv.timemap = None
-            self.store.update(resource.original)
+            self.store.update(resource)
             for contained in resource.contains:
                 # FIXME - What to do about any Mementos that might themselves be LDPC?
                 self.store.delete(contained)

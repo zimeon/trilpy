@@ -68,11 +68,20 @@ class Store(object):
         return(uri)
 
     def update(self, resource):
-        """Update content of resource in the store.
+        """Update content of the resource at resource.uri in the store.
 
-        no-op in this model of an in-memory store.
+        In the case that resource is the same object as already stored at this location then
+        update no-op in this model of an in-memory store. However, is resource is a different
+        object then it will be replaced.
         """
-        pass
+        if resource.uri in self.deleted:
+            raise KeyDeleted("Attempt to update deleted resource %s." % resource.uri)
+        if resource.uri not in self._resources:
+            raise KeyError("Attempt to update resource %s that does not exist." % resource.uri)
+        # Retain containment link
+        old_resource = self._resources[resource.uri]
+        resource.contained_in = old_resource.contained_in
+        self._resources[resource.uri] = resource
 
     def delete(self, uri):
         """Delete resource and record deletion. Return context of deleted resource.

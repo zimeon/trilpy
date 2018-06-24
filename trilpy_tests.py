@@ -274,6 +274,16 @@ class TCaseWithSetup(unittest.TestCase):
         ldpcv_uri = self.find_links(link_header, 'timemap')[0]
         return(ldprv_uri, ldpcv_uri)
 
+    def get_parse_ldprs(self, uri, auth=None, **kwargs):
+        """GET with get(...) method, then parse and return rdflib Graph."""
+        if 'headers' not in kwargs:
+            kwargs['headers'] = {}
+        kwargs['headers']['Content-Type'] = 'text/turtle'
+        r = self.get(uri, auth, **kwargs)
+        g = Graph()
+        g.parse(format='turtle', data=r.content)
+        return g
+
 
 class LDPTestSuite(TCaseWithSetup):
     """LDPTestSuite class to run the Java LDP testsuite."""
@@ -358,11 +368,49 @@ class TestLDP(TCaseWithSetup):
         # Cleanup
         self.delete(url, auth=(self.user, self.password))
 
+    def test_ldp_5_3_2_7(self):
+        """Test <> in POST body.
+
+        https://www.w3.org/TR/ldp/#ldpc-post-rdfnullrel
+        LDP servers creating a LDP-RS via POST must interpret the null relative URI for
+        the subject of triples in the LDP-RS representation in the request entity body
+        as identifying the entity in the request body. Commonly, that entity is the model
+        for the "to be created" LDPR, so triples whose subject is the null relative URI
+        result in triples in the created resource whose subject is the created resource.
+        """
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                      data='<> <http://ex.org/b> "xyz".')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        self.assertTrue(uri)
+        g = self.get_parse_ldprs(uri)
+        self.assertIn((URIRef(uri), URIRef('http://ex.org/b'), Literal('xyz')), g)
+
 
 class TestFedora(TCaseWithSetup):
     """TestFedora class to run Fedora specific tests."""
 
     def test_fedora_3_1_1(self):
+        """Check Implementations MUST support creation and management of containers."""
+        # Should be able to create different container types and get back
+        # their type in link header
+        for container_type in ['http://www.w3.org/ns/ldp#BasicContainer',
+                               'http://www.w3.org/ns/ldp#DirectContainer',
+                               'http://www.w3.org/ns/ldp#IndirectContainer']:
+            r = self.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<' + container_type + '>; rel="type"'},
+                          data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+            self.assertEqual(r.status_code, 201)
+            uri = r.headers.get('Location')
+            self.assertTrue(uri)
+            r = self.head(uri)
+            links = r.headers.get('Link')
+            self.assertIn(container_type, links)
+
+    def test_fedora_3_1_2(self):
         """Resource creation SHOULD follow Link: rel='type' for LDP-NR.
 
         https://fcrepo.github.io/fcrepo-specification/#ldpnr-ixn-model
@@ -393,24 +441,6 @@ class TestFedora(TCaseWithSetup):
                               'Content-Type': 'text/stuff'},
                      data='Hello there!')
         self.assertEqual(r.status_code, 204)
-
-    def test_fedora_3_1_2(self):
-        """Check Implementations MUST support creation and management of containers."""
-        # Should be able to create different container types and get back
-        # their type in link header
-        for container_type in ['http://www.w3.org/ns/ldp#BasicContainer',
-                               'http://www.w3.org/ns/ldp#DirectContainer',
-                               'http://www.w3.org/ns/ldp#IndirectContainer']:
-            r = self.post(self.rooturi,
-                          headers={'Content-Type': 'text/turtle',
-                                   'Link': '<' + container_type + '>; rel="type"'},
-                          data='<http://ex.org/a> <http://ex.org/b> "xyz".')
-            self.assertEqual(r.status_code, 201)
-            uri = r.headers.get('Location')
-            self.assertTrue(uri)
-            r = self.head(uri)
-            links = r.headers.get('Link')
-            self.assertIn(container_type, links)
 
     def test_fedora_3_2_1(self):
         """Test additional PreferInboundReferences value of Prefer: return=representation."""
@@ -565,9 +595,7 @@ class TestFedora(TCaseWithSetup):
                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
                      data='<http://ex.org/a> <http://ex.org/b> "ZYX".')
         self.assertEqual(r.status_code, 204)
-        r = self.get(uri)
-        g = Graph()
-        g.parse(format='turtle', data=r.content)
+        g = self.get_parse_ldprs(uri)
         self.assertNotIn(Literal('xyz'), g.objects())
         self.assertIn(Literal('ZYX'), g.objects())
 
@@ -619,9 +647,7 @@ class TestFedora(TCaseWithSetup):
                        data=patch_data)
         self.assertEqual(r.status_code, 200)
         # Check result
-        r = self.get(uri)
-        g = Graph()
-        g.parse(format='turtle', data=r.content)
+        g = self.get_parse_ldprs(uri)
         self.assertIn((URIRef('http://example.org/simeon'),
                        URIRef('http://example.org/ate'),
                        URIRef('http://example.org/pizza')),
@@ -816,10 +842,7 @@ class TestFedora(TCaseWithSetup):
                 r = self.delete(ldprm_uri)
                 self.assertEqual(r.status_code, 200)
                 # Check no longer included in LDPCv/TimeMap
-                r = self.get(tm_uri,
-                             headers={'Content-Type': 'text/turtle'})
-                g = Graph()
-                g.parse(format='turtle', data=r.content)
+                g = self.get_parse_ldprs(tm_uri)
                 self.assertNotIn(URIRef(ldprm_uri), g.objects())
 
     def test_fedora_4_3(self):
