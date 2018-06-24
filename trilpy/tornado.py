@@ -371,6 +371,7 @@ class LDPHandler(RequestHandler):
         except PatchFailed as e:
             raise HTTPError(400, "PATCH failed: " + str(e))
         logging.debug("PATCH %s OK" % (uri))
+        self.confirm("Patched")
 
     def delete(self):
         """HTTP DELETE.
@@ -402,8 +403,12 @@ class LDPHandler(RequestHandler):
         <https://tools.ietf.org/html/rfc7231#section-4.3.7>
         """
         if (self.request.path == '*'):
-            # Server-wide options per RFC7231
-            pass
+            # Server-wide options per RFC7231 - "Since a server's communication options
+            # typically depend on the resource, the "*" request is only useful as a
+            # "ping" or "no-op" type of method; it does nothing beyond allowing the
+            # client to test the capabilities of the server."
+            # Can test this response manually via telent: OPTIONS * HTTP/1.1\n\n
+            self.confirm("No server-wide options returned")
         else:
             # Specific resource
             uri = self.path_to_uri(self.request.path)
@@ -412,7 +417,7 @@ class LDPHandler(RequestHandler):
             self.response_links.add('type', resource.rdf_type_uris)
             self.set_link_header()
             self.set_allow(resource)
-        self.confirm("Options returned")
+            self.confirm("Options returned")
 
     def request_content_type(self):
         """Return the request content type.

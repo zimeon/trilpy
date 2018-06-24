@@ -5,22 +5,26 @@ from tornado.testing import AsyncHTTPTestCase
 from tornado.web import Application, HTTPError
 from tornado.httpserver import HTTPRequest
 from tornado.httputil import HTTPHeaders
+from urllib.parse import urljoin
 
 from trilpy.ldpc import LDPC
 from trilpy.ldpnr import LDPNR
 from trilpy.ldprs import LDPRS
 from trilpy.links import RequestLinks, ResponseLinks
-from trilpy.store import Store
+from trilpy.store import Store, KeyDeleted
 from trilpy.tornado import make_app, HTTPError, LDPHandler, StatusHandler
 
 
-def mockedLDPHandler(method='GET', uri='/test', headers=None, body=None):
-    """LDPHandler with appropriate Application and HTTPRequest mocking."""
-    if headers is not None:
-        headers = HTTPHeaders(headers)
+def mockedLDPHandler(method='GET', uri='/test', headers=None, body=None, base_uri='http://localhost/'):
+    """LDPHandler with appropriate Application and HTTPRequest mocking, and a Store."""
+    headers = HTTPHeaders({} if headers is None else headers)
     request = HTTPRequest(method=method, uri=uri, headers=headers, body=body,
                           connection=Mock())
-    return LDPHandler(Application(), request)
+    h = LDPHandler(Application(), request)
+    h.base_uri = base_uri
+    h.store = Store(h.base_uri)
+    h.store.add(LDPC(), uri=h.base_uri)
+    return h
 
 
 class TestLDPHandler(unittest.TestCase):
@@ -51,6 +55,112 @@ class TestLDPHandler(unittest.TestCase):
         self.assertEqual(h.get_current_user(), 'fedoraAdmin')
         h = mockedLDPHandler(headers={'Authorization': 'Basic YS11c2VyOmEtcGFzc3dvcmQ='})
         self.assertEqual(h.get_current_user(), None)
+
+    def test03_head(self):
+        """Test HEAD method."""
+        h = mockedLDPHandler()
+        h.get = MagicMock()
+        h.head()
+        h.get.assert_called_with(is_head=True)
+
+    def test05_get(self):
+        """Test GET method."""
+        # auth disabled
+        LDPHandler.no_auth = True
+        # 404
+        h = mockedLDPHandler(uri='/not-present')
+        h.write = MagicMock()
+        self.assertRaises(HTTPError, h.get, False)
+        self.assertRaises(HTTPError, h.get, True)
+        #
+        h = mockedLDPHandler(uri='/1')
+        h.base_uri = 'http://localhost'
+        h.store = Store(h.base_uri)
+        h.store.add(LDPNR(content=b'hello', content_type='text/plain'), uri='1')
+        h.write = MagicMock()
+        h.get(False)
+        h.write.assert_called_with(b'hello')
+
+    def test10_post(self):
+        """Test POST method."""
+        # auth disabled
+        LDPHandler.no_auth = True
+        #
+        h = mockedLDPHandler(uri='/',
+                             headers={'Content-Type': 'text/plain',
+                                      'Slug': 'test10_post_1',
+                                      'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                             body=b'I am a LDPNR')
+        h.set_header = MagicMock()
+        h.write = MagicMock()
+        h.post()
+        h.set_header.assert_has_calls([call('Location', 'http://localhost/test10_post_1'),
+                                       call('Link', '<http://localhost/1>; rel="describedby", ' +
+                                            '<http://localhost/constraints.txt>; rel="http://www.w3.org/ns/ldp#constrainedBy"')],
+                                      any_order=True)
+        h.write.assert_not_called()
+
+    def test15_put(self):
+        """Test PUT method."""
+        # auth disabled
+        LDPHandler.no_auth = True
+        #
+        h = mockedLDPHandler(uri='/test15_put_1',
+                             headers={'Content-Type': 'text/plain',
+                                      'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
+                             body=b'I am a LDPNR')
+        h.set_header = MagicMock()
+        h.write = MagicMock()
+        h.put()
+        h.set_header.assert_has_calls([call('Link', '<http://localhost/1>; rel="describedby", ' +
+                                            '<http://localhost/constraints.txt>; rel="http://www.w3.org/ns/ldp#constrainedBy"')],
+                                      any_order=True)
+        h.write.assert_not_called()
+
+    def test20_patch(self):
+        """Test PATCH method."""
+        # auth disabled
+        LDPHandler.no_auth = True
+        #
+        h = mockedLDPHandler(uri='/patchme',
+                             headers={'Content-Type': 'application/sparql-update'},
+                             body=b'''PREFIX ex: <http://example.org/>
+                                      INSERT DATA { ex:a ex:b ex:c . }''')
+        uri = urljoin(h.base_uri, '/patchme')
+        h.store.add(LDPRS(), uri=uri)
+        self.assertEqual(len(h.store[uri].content), 0)
+        h.set_header = MagicMock()
+        h.write = MagicMock()
+        h.patch()
+        h.write.assert_called_with('200 - Patched\n')
+        self.assertEqual(len(h.store[uri].content), 1)
+
+    def test25_delete(self):
+        """Test DELETE method."""
+        # auth disabled
+        LDPHandler.no_auth = True
+        #
+        h = mockedLDPHandler(uri='/deleteme')
+        uri = urljoin(h.base_uri, '/deleteme')
+        h.store.add(LDPRS(), uri=uri)
+        h.set_header = MagicMock()
+        h.write = MagicMock()
+        h.delete()
+        h.write.assert_called_with('200 - Deleted\n')
+        self.assertRaises(KeyDeleted, lambda: h.store[uri])
+
+    def test30_options(self):
+        """Test OPTIONS method."""
+        # auth disabled
+        LDPHandler.no_auth = True
+        #
+        h = mockedLDPHandler(uri='/')
+        h.set_header = MagicMock()
+        h.write = MagicMock()
+        h.options()
+        h.set_header.assert_has_calls([call('Allow', 'GET, HEAD, OPTIONS, PUT, DELETE, PATCH, POST')],
+                                      any_order=True)
+        h.write.assert_called_with('200 - Options returned\n')
 
     def test34_request_content_type(self):
         """Test request_content_type method."""
@@ -182,8 +292,7 @@ class TestLDPHandler(unittest.TestCase):
 
 def mockedStatusHandler(method='GET', uri='/status', headers=None, body=None):
     """StatsusHandler with appropriate Application and HTTPRequest mocking."""
-    if headers is not None:
-        headers = HTTPHeaders(headers)
+    headers = HTTPHeaders({} if headers is None else headers)
     request = HTTPRequest(method=method, uri=uri, headers=headers, body=body,
                           connection=Mock())
     return StatusHandler(Application(), request)
