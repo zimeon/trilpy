@@ -1,6 +1,7 @@
 """HTTP Prefer header handling.
 
-See:  https://tools.ietf.org/html/rfc7240
+See https://tools.ietf.org/html/rfc7240 for foundational specification
+and https://www.w3.org/TR/ldp/#prefer-parameters for LDP use.
 """
 
 import logging
@@ -58,23 +59,28 @@ def find_return_representation(prefer_headers):
 _uri_to_name_map = {
     'http://www.w3.org/ns/ldp#PreferContainment': 'containment',
     'http://www.w3.org/ns/ldp#PreferMembership': 'membership',
-    'http://www.w3.org/ns/ldp#PreferMinimalContainer': 'content',
-    'http://www.w3.org/ns/ldp#PreferEmptyContainer': 'content'
+    'http://www.w3.org/ns/ldp#PreferMinimalContainer': 'minimal',
+    'http://www.w3.org/ns/ldp#PreferEmptyContainer': 'minimal'
 }
 
 
 def parse_prefer_return_representation(prefer_headers):
-    """Return set of sections to omit in LDP respose.
+    """Return set of sections to omit in LDP response.
 
-    Three sections are defined in LDP: 'content', 'membership', 'containment'
+    Three sections are defined in LDP: 'minimal', 'membership', 'containment'
     where we here consider these to be three orthogonal sections that make
     up the response. Specification of include="..." for the LDP defined sections
     is treated as the opposite of omit="...". Note that LDP explicitly says that
     servers may choose not to implement it this way.
 
+    Note that 'minimal' is defined https://www.w3.org/TR/ldp/#dfn-minimal-container-triples
+    as all thr triples (server managed and client managed content) that would be
+    returned if there were no members and no contained resources. It should include
+    all the triples defining membership predicates etc..
+
     However, if the Prefer header has include="..." with some other preference
     not defined by LDP, and does not specify an LDP section then we will treat
-    that as if all sections were included (i.e. omits = []).
+    that as if all sections were included (i.e. omits = set() ).
     """
     omits = set()
     includes = set()
@@ -86,7 +92,7 @@ def parse_prefer_return_representation(prefer_headers):
                 if (uri in _uri_to_name_map):
                     omits.add(_uri_to_name_map[uri])
         else:  # ptype == 'include'
-            # For include we LDP and non-LDP URIs differently
+            # For include we treat LDP and non-LDP URIs differently
             ldp_includes = set()
             for uri in uris:
                 if (uri in _uri_to_name_map):

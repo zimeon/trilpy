@@ -153,30 +153,43 @@ class LDPRS(LDPR):
             logging.debug("type: %s" % (str(o)))
         return types
 
-    def serialize(self, content_type='text/turtle', omits=None, extra=None):
-        """Serialize this resource in given format.
+    def graph(self, omits, extra=None):
+        """RDF graph representation with given omits, extra.
 
-        We also add in certain server managed triples required
-        by LDP and/or Fedora.
+        Adds in certain server managed triples required by LDP and/or Fedora.
 
-        If omits is not None then apply the Prefer return=representation
-        preference to select only a subset of triples.
+        The add_server_managed_triples() method should be overridden in subclasses
+        such as those implementing LDPCs.
+
+        The preferences don't make much sense for LDPRS as opposed to LDPC. There
+        are no 'container' or 'membership' triples so 'minimal' in omits just turns
+        off the whole server managed and content output.
         """
         graph = Graph()
         graph.bind('ldp', LDP)
-        if (omits is None or 'content' not in omits):
+        if 'minimal' not in omits:
             graph += self.content
         if extra is not None:
             graph += extra
         self.add_server_managed_triples(graph, omits)
-        return graph.serialize(
+        return graph
+
+    def serialize(self, content_type='text/turtle', omits=None, extra=None):
+        """Serialize this resource in given format.
+
+        Build graph and then serialize according to the requested content_type.
+        """
+        if omits is None:
+            omits = set()
+        return self.graph(omits, extra).serialize(
             format=self._media_to_rdflib_type(content_type),
             context="",
             indent=2).decode('utf-8')
 
-    def add_server_managed_triples(self, graph, omits=None):
+    def add_server_managed_triples(self, graph, omits):
         """Add server managed RDF triples to graph."""
-        self.add_type_triples(graph)
+        if 'minimal' not in omits:
+            self.add_type_triples(graph)
 
     def add_type_triples(self, graph):
         """Add rdf:type triples to graph."""
@@ -186,7 +199,7 @@ class LDPRS(LDPR):
     def server_managed_triples(self):
         """Graph of RDF triples that would be added from the server."""
         g = Graph()
-        self.add_server_managed_triples(g)
+        self.add_server_managed_triples(g, [])
         return g
 
     def triples(self, triple_pattern):

@@ -150,3 +150,7 @@ class TestAll(unittest.TestCase):
         self.assertEqual(len(mt), 2)
         self.assertIn((URIRef('uri:self-mem'), LDP.member, URIRef('uri:m1')), mt)
         self.assertIn((URIRef('uri:self-mem'), LDP.member, URIRef('uri:m3')), mt)
+
+    def test30_graph(self):
+        """Test behavior of inherited graph method."""
+        pass

@@ -3,7 +3,7 @@ import unittest
 from rdflib import Graph, URIRef, Literal
 from rdflib.namespace import RDF
 from trilpy.ldprs import LDPRS, PatchFailed
-from trilpy.namespace import LDP
+from trilpy.namespace import LDP, EX
 
 
 class TestAll(unittest.TestCase):
@@ -96,8 +96,27 @@ class TestAll(unittest.TestCase):
         self.assertRaises(Exception, r.get_container_type, context="http://ex.org/aa")
         self.assertEqual(r.get_container_type(context="http://ex.org/NOT_aa"), None)
 
-    def test20_serialize(self):
-        """Test some simple serialization cases."""
+    def test20_graph(self):
+        """Test graph method."""
+        uri = URIRef('http://ex.org/ldprs')
+        cg = Graph()
+        cg.add((uri, RDF.type, EX.some_type))
+        cg.add((URIRef('http://ex.org/a'), URIRef('http://ex.org/b'), Literal('LITERAL')))
+        r = LDPRS(uri=uri, content=cg)
+        g = r.graph(omits=[])
+        self.assertIn((uri, RDF.type, EX.some_type), g)
+        # Test omits (nothing to come out)
+        g = r.graph(omits=['minimal'])
+        self.assertEqual(len(g), 0)
+        # Test extra
+        eg = Graph()
+        eg.add((EX.Happy, EX.Lazy, EX.Wombat))
+        g = r.graph(omits=['minimal'], extra=eg)
+        self.assertEqual(len(g), 1)
+        self.assertIn((EX.Happy, EX.Lazy, EX.Wombat), g)
+
+    def test21_serialize(self):
+        """Test serialize method."""
         uri = URIRef('http://ex.org/ldprs')
         g = Graph()
         g.add((uri, RDF.type, URIRef('http://ex.org/some_type')))
@@ -110,26 +129,26 @@ class TestAll(unittest.TestCase):
         self.assertIn('ldp:RDFSource', s)
         self.assertIn('ldp:Resource', s)
         self.assertIn('"LITERAL"', s)
-        # Test omits
-        s = r.serialize(omits=['content'])
-        self.assertIn('ldprs', s)  # might prefix or not
+        # Test omits (nothing to come out)
+        s = r.serialize(omits=['minimal'])
+        self.assertNotIn('ldprs', s)  # might prefix or not
         self.assertNotIn('some_type', s)  # might prefix or not
-        self.assertIn('ldp:RDFSource', s)
-        self.assertIn('ldp:Resource', s)
+        self.assertNotIn('ldp:RDFSource', s)
+        self.assertNotIn('ldp:Resource', s)
         self.assertNotIn('"LITERAL"', s)
         self.assertNotIn('"Wombat"', s)
         # Test extra
         eg = Graph()
-        eg.add((URIRef('info:Happy'), URIRef('info:Lazy'), Literal('Wombat')))
+        eg.add((EX.Happy, EX.Lazy, EX.Wombat))
         s = r.serialize(extra=eg)
-        self.assertIn('"Wombat"', s)
+        self.assertIn('Wombat', s)
 
     def test30_add_server_managed_triples(self):
         """Test addition of server manages triples to graph."""
         # CURRENTLY SAME AS JUST ADDING TYPE TRIPLES
         r = LDPRS('http://ex.org/xyz')
         g = Graph()
-        r.add_server_managed_triples(g)
+        r.add_server_managed_triples(g, [])
         self.assertEqual(len(g), 2)
 
     def test31_add_type_triples(self):

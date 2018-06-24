@@ -88,19 +88,25 @@ class LDPHandler(RequestHandler):
             content_type = conneg_on_accept(
                 resource.rdf_media_types, self.request.headers.get("Accept"))
             # Is there a Prefer return=representation header?
-            (omits, includes) = parse_prefer_return_representation(
-                self.request.headers.get_list('Prefer'))
+            (omits, includes) = parse_prefer_return_representation(self.request.headers.get_list('Prefer'))
             preference_applied = False
-            # logging.debug("Prefer: " + str(self.request.headers.get_list('Prefer')))
             logging.debug("Omits: " + str(omits))
             logging.debug("Includes: " + str(includes))
             # Is there a PreferInboundReferences header?
-            ir_graph = None
-            if ('http://fedora.info/definitions/fcrepo#PreferInboundReferences' in includes):
-                ir_graph = self.store.object_references(uri)
-                logging.debug("PreferInboundReferences, adding %d triples referencing %s" % (len(ir_graph), uri))
+            extra_graph = None
+            if 'http://fedora.info/definitions/fcrepo#PreferInboundReferences' in includes:
+                extra_graph = self.store.object_references(uri)
+                logging.debug("PreferInboundReferences, adding %d triples referencing %s" % (len(extra_graph), uri))
                 preference_applied = True
-            content = resource.serialize(content_type, omits, extra=ir_graph)
+            if 'http://www.w3.org/ns/oa#PreferContainedDescriptions' in includes and isinstance(resource, LDPC):
+                # FIXME - this has the potential to get quite large, should there be a cutoff?
+                contained_graph = Graph()
+                for contained_uri in resource.contains:
+                    contained_graph += self.store[uri].graph(omits)
+                logging.debug("PreferContainedDescriptions, adding %d triples referencing %s" % (len(contained_graph), uri))
+                extra_graph = contained_graph if extra_graph is None else extra_graph + contained_graph
+                preference_applied = True
+            content = resource.serialize(content_type, omits, extra=extra_graph)
             if (len(resource) < 20):
                 logging.debug("RDF response:\n" + content)
             else:

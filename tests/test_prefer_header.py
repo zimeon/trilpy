@@ -65,8 +65,8 @@ class TestAll(unittest.TestCase):
         self.assertRaises(Exception, find_return_representation,
                           ['return=representation;foo = bar'])
 
-    def test05_ldp_return_representation_omits(self):
-        """Get set of omits."""
+    def test05_parse_prefer_return_representation(self):
+        """Test parse_prefer_return_representation."""
         omits, includes = parse_prefer_return_representation([])
         self.assertEqual(omits, set())
         self.assertEqual(includes, set())
@@ -80,7 +80,7 @@ class TestAll(unittest.TestCase):
         self.assertEqual(includes, set())
         omits, includes = parse_prefer_return_representation([
             'return = representation; include="http://www.w3.org/ns/ldp#PreferMembership http://www.w3.org/ns/ldp#PreferContainment"'])
-        self.assertEqual(omits, set(['content']))
+        self.assertEqual(omits, set(['minimal']))
         self.assertEqual(includes, set())
         omits, includes = parse_prefer_return_representation([
             'return=representation; include="http://example.org/other/include"'])

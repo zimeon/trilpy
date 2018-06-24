@@ -32,7 +32,13 @@ class LDPC(LDPRS):
         self.containment_predicate = LDP.contains
         self.members = set()
         self.membership_predicate = LDP.member
+        self._membership_constant = None
         self.type_label = 'LDPC'
+
+    @property
+    def membership_constant(self):
+        """Member constant URIRef, either uriref or set from _member_constant."""
+        return self.uriref if self._membership_constant is None else self._membership_constant
 
     def patch_result_prune_check(self, graph):
         """Prune containment triples from result of PATCH graph and check for illegal modifications.
@@ -43,14 +49,14 @@ class LDPC(LDPRS):
 
         SIDE EFFECT - graph is modified to remove the containment triples
         """
-        patch_ct = self.extract_containment_triples(graph)
+        patch_ct = self.extract_containment_triples(graph, remove=True)
         existing_ct = Graph()
         for triple in self.containment_triples():
             existing_ct.add(triple)
         if (len(existing_ct + patch_ct) != len(existing_ct)):
             raise PatchIllegal("Attempt to modify containment triples")
 
-    def extract_containment_triples(self, content=None):
+    def extract_containment_triples(self, content=None, remove=True):
         """Extract graph of containment triples from content.
 
         If content is not specified then modify self.content.
@@ -66,30 +72,37 @@ class LDPC(LDPRS):
         # we fail the FedoraAPITestSuite 3.7.1 test.
         for (s, p, o) in content.triples((None, self.containment_predicate, None)):
             ctriples.add((s, p, o))
-            content.remove((s, p, o))
+            if remove:
+                content.remove((s, p, o))
         return ctriples
 
-    def add_server_managed_triples(self, graph, omits=None):
+    def add_server_managed_triples(self, graph, omits):
         """Add RDF triples from the server.
 
         The includes the type triples of a generic LDPRS add_server_managed_triples
         and also containement and membership triples.
         """
         self.add_type_triples(graph)
-        if (self.container_type == LDP.DirectContainer):
-            graph.add((self.uriref,
-                       LDP.membershipResource,
-                       self.uriref))
-            graph.add((self.uriref,
-                       LDP.hasMemberRelation,
-                       self.membership_predicate))
-            graph.add((self.uriref,
-                      LDP.insertedContentRelation,
-                      LDP.MemberSubject))
-        if (omits is None or 'membership' not in omits):
-            self.add_membership_triples(graph)
-        if (omits is None or 'containment' not in omits):
-            self.add_containment_triples(graph)
+        if self.container_type == LDP.BasicContainer:
+            # For BasicContainers we have only ldp:contains triples
+            if 'containment' not in omits:
+                self.add_containment_triples(graph)
+        else:
+            # Direct and Indirect containers have membership information and
+            # we do not serialize the ldp:contains triples
+            # FIXME - where in the specs does it say we don't serialize ldp:contains?
+            if 'membership' not in omits:
+                self.add_membership_triples(graph)
+                if (self.container_type == LDP.DirectContainer):
+                    graph.add((self.uriref,
+                               LDP.membershipResource,
+                               self.membership_constant))
+                    graph.add((self.uriref,
+                               LDP.hasMemberRelation,
+                               self.membership_predicate))
+                    graph.add((self.uriref,
+                               LDP.insertedContentRelation,
+                               LDP.MemberSubject))
 
     def add_containment_triples(self, graph):
         """Add containment triples to graph."""
