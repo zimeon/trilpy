@@ -99,12 +99,12 @@ class LDPHandler(RequestHandler):
                 logging.debug("PreferInboundReferences, adding %d triples referencing %s" % (len(extra_graph), uri))
                 preference_applied = True
             if 'http://www.w3.org/ns/oa#PreferContainedDescriptions' in includes and isinstance(resource, LDPC):
-                # FIXME - this has the potential to get quite large, should there be a cutoff?
-                contained_graph = Graph()
-                for contained_uri in resource.contains:
-                    contained_graph += self.store[uri].graph(omits)
-                logging.debug("PreferContainedDescriptions, adding %d triples referencing %s" % (len(contained_graph), uri))
-                extra_graph = contained_graph if extra_graph is None else extra_graph + contained_graph
+                contained_graph = self.store.contained_graph(uri, omits)
+                logging.debug("PreferContainedDescriptions, adding %d triples from contained LDPRS(s)" % (len(contained_graph)))
+                if extra_graph is None:
+                    extra_graph = contained_graph
+                else:
+                    extra_graph += contained_graph
                 preference_applied = True
             content = resource.serialize(content_type, omits, extra=extra_graph)
             if (len(resource) < 20):

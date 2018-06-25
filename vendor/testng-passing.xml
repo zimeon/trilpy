@@ -47,8 +47,9 @@
       <class name="org.fcrepo.spec.testsuite.crud.Ldpnr"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpGet">
         <methods>
-          <exclude name="responseDescribesHeader"/> <!--https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/100-->
-        </methods>
+          <exclude name="additionalValuesForPreferHeader"/> <!-- bad test: https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/106-->
+          <exclude name="responseDescribesHeader"/> <!-- bad test: https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/105-->
+	</methods>
       </class>
       <class name="org.fcrepo.spec.testsuite.crud.HttpHead"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpOptions"/>

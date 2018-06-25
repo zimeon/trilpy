@@ -122,7 +122,7 @@ class Store(object):
         """
         g = Graph()
         triple_pattern = (None, None, URIRef(uri))
-        for r_uri, resource in self._resources.items():
+        for r_uri, resource in self.items():
             if (isinstance(resource, LDPRS)):
                 for (s, p, o) in resource.triples(triple_pattern):
                     g.add((s, p, o))
@@ -136,6 +136,23 @@ class Store(object):
                            resource.membership_predicate,
                            URIRef(uri)))
         return g
+
+    def contained_graph(self, uri, omits):
+        """Graph of resource content for resources contained by uri.
+
+        Simply iterates through the set of contained resources and adds
+        the content (following omits rules) of any that are LDPRS to the
+        graph.
+
+        FIXME - this has the potential to get quite large, should there be a cutoff?
+        """
+        resource = self[uri]
+        contained_graph = Graph()
+        for contained_uri in resource.contains:
+            contained_resource = self[contained_uri]
+            if isinstance(contained_resource, LDPRS):
+                contained_graph += contained_resource.graph(omits)
+        return contained_graph
 
     def acl(self, uri, depth=0):
         """ACL URI for the ACL controlling access to uri.
