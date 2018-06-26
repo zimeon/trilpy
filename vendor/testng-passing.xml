@@ -73,7 +73,6 @@
       <class name="org.fcrepo.spec.testsuite.crud.ExternalBinaryContent">
         <methods>
           <exclude name="putCreateExternalBinaryContent"/>
-          <exclude name="putUpdateExternalBinaryContent"/>
           <exclude name="createExternalBinaryContentCheckAccesType"/>
           <exclude name="postCheckUnsupportedMediaType"/>
           <!--exclude name="putCheckUnsupportedMediaType"/-->
