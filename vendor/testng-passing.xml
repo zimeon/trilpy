@@ -41,15 +41,10 @@
         <!--Specify methods to 'include' or 'exclude'-->
         <methods>
           <exclude name="ldpcMembershipTriples"/>
-          <exclude name="ldpcMinimalContainerTriples"/>
         </methods>
       </class>
       <class name="org.fcrepo.spec.testsuite.crud.Ldpnr"/>
-      <class name="org.fcrepo.spec.testsuite.crud.HttpGet">
-        <methods>
-          <exclude name="responseDescribesHeader"/> <!-- bad test: https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/105-->
-	</methods>
-      </class>
+      <class name="org.fcrepo.spec.testsuite.crud.HttpGet"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpHead"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpOptions"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpPost"/>
@@ -70,27 +65,7 @@
         </methods>
       </class>
       <class name="org.fcrepo.spec.testsuite.crud.HttpDelete"/>
-      <class name="org.fcrepo.spec.testsuite.crud.ExternalBinaryContent">
-        <methods>
-          <exclude name="putCreateExternalBinaryContent"/>
-          <exclude name="createExternalBinaryContentCheckAccesType"/>
-          <exclude name="postCheckUnsupportedMediaType"/>
-          <!--exclude name="putCheckUnsupportedMediaType"/-->
-          <!--exclude name="checkUnsupportedMediaType"/-->
-          <!--exclude name="postCheckHeaders"/-->
-          <exclude name="putUpdateCheckHeaders"/>
-          <exclude name="getCheckContentLocationHeader"/>
-          <exclude name="headCheckContentLocationHeader"/>
-          <!--exclude name="respondWantDigestExternalBinaryContent"/-->
-          <!--exclude name="respondWantDigestExternalBinaryContentHead"/-->
-          <!--exclude name="respondWantDigestTwoSupportedExternalBinaryContent"/-->
-          <!--exclude name="respondWantDigestTwoSupportedExternalBinaryContentHead"/-->
-          <!--exclude name="respondWantDigestTwoSupportedQvalueNonZeroExternalBinaryContent"/-->
-          <!--exclude name="respondWantDigestTwoSupportedQvalueNonZeroExternalBinaryContentHead"/-->
-          <!--exclude name="respondWantDigestNonSupportedExternalBinaryContent"/-->
-          <!--exclude name="respondWantDigestNonSupportedExternalBinaryContentHead"/-->
-        </methods>
-      </class>
+      <!--class name="org.fcrepo.spec.testsuite.crud.ExternalBinaryContent"--> <!--these tests all broken, see https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/111 -->
     </classes>
 
   </test>
