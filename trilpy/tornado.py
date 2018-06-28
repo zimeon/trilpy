@@ -153,7 +153,6 @@ class LDPHandler(RequestHandler):
             raise HTTPError(405, "POST not supported on LDPRm/Memento")
         elif (not isinstance(resource, LDPC)):
             raise HTTPError(405, "Rejecting POST to non-LDPC (%s)" % (str(resource)))
-        acl_uri = self.request_links.acl_uri(self.base_uri)
         datetime = None
         if (resource.is_ldpcv):
             mdt_header = self.request.headers.get('Memento-Datetime')
@@ -346,6 +345,8 @@ class LDPHandler(RequestHandler):
             self.store.add(rd, rd.uri)
             r.describedby = rd.uri
             self.response_links.add('describedby', [r.describedby])
+        # Is there an acl link?
+        r.acl = self.request_links.acl_uri(self.base_uri)
         return(r)
 
     def patch(self):

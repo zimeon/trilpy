@@ -393,7 +393,10 @@ class TestFedora(TCaseWithSetup):
     """TestFedora class to run Fedora specific tests."""
 
     def test_fedora_3_1_1(self):
-        """Check Implementations MUST support creation and management of containers."""
+        """Check Implementations MUST support creation and management of containers.
+
+        https://fedora.info/spec/#ldpc
+        """
         # Should be able to create different container types and get back
         # their type in link header
         for container_type in ['http://www.w3.org/ns/ldp#BasicContainer',
@@ -409,11 +412,12 @@ class TestFedora(TCaseWithSetup):
             r = self.head(uri)
             links = r.headers.get('Link')
             self.assertIn(container_type, links)
+            self.assertNotIn('http://www.w3.org/ns/ldp#NonRDFSource', links)
 
     def test_fedora_3_1_2(self):
         """Resource creation SHOULD follow Link: rel='type' for LDP-NR.
 
-        https://fcrepo.github.io/fcrepo-specification/#ldpnr-ixn-model
+        https://fedora.info/spec/#ldpnr-ixn-model
         """
         # POST Turtle object as LDR-NR
         r = self.post(self.rooturi,
@@ -442,8 +446,24 @@ class TestFedora(TCaseWithSetup):
                      data='Hello there!')
         self.assertEqual(r.status_code, 204)
 
+    def test_fedora_3_1_3(self):
+        """Test link to constraints document on failure.
+
+        https://fedora.info/spec/#constraints-document
+        """
+        if self.skip_should:
+            return
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/yoda-triples-unsupported',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                      data='"xyz" <http://ex.org/b> <http://ex.org/a>.')
+        self.assert_4xx_with_link_to_constraints(r)
+
     def test_fedora_3_2_1(self):
-        """Test additional PreferInboundReferences value of Prefer: return=representation."""
+        """Test additional PreferInboundReferences value of Prefer: return=representation.
+
+        https://fedora.info/spec/#additional-prefer-values
+        """
         if self.skip_should:
             return
         pir = 'http://fedora.info/definitions/fcrepo#PreferInboundReferences'
@@ -465,7 +485,10 @@ class TestFedora(TCaseWithSetup):
         self.assertIn('return=representation', pa_headers)
 
     def test_fedora_3_5_a(self):
-        """Check LDPC support for POST."""
+        """Check LDPC support for POST.
+
+        https://fedora.info/spec/#http-post
+        """
         for resource_type in ['http://www.w3.org/ns/ldp#RDFSource',
                               'http://www.w3.org/ns/ldp#NonRDFSource',
                               'http://www.w3.org/ns/ldp#BasicContainer']:
@@ -486,7 +509,7 @@ class TestFedora(TCaseWithSetup):
     # document referenced in the Link: rel="http://www.w3.org/ns/ldp#constrainedBy"
     # header ([LDP] 4.2.1.6 clarification).
 
-    def test_fedora_3_5_c(self):
+    def test_fedora_3_5_1_a(self):
         """Check creation of associated LDPRS on POST to create LDPNR.
 
         LDP: 5.2.3.12 ...may...
@@ -512,8 +535,11 @@ class TestFedora(TCaseWithSetup):
         db_links2 = self.find_links(link_header, 'describedby')
         self.assertEqual(db_links, db_links2)
 
-    def test_fedora_3_5_1(self):
-        """Check handling of Digest header on POST."""
+    def test_fedora_3_5_1_b(self):
+        """Check handling of Digest header on POST.
+
+        https://fedora.info/spec/#http-post-ldpnr
+        """
         if (not self.digest):
             return()
         # Unsupported digest type
@@ -578,8 +604,11 @@ class TestFedora(TCaseWithSetup):
             self.assert_4xx_with_link_to_constraints(r, 409)
         # FIXME - Alsmot check incompatible LDPRS replacements
 
-    def test_fedore_3_4_1(self):
-        """Check PUT to LDPRS to update triples."""
+    def test_fedore_3_6_1(self):
+        """Check PUT to LDPRS to update triples.
+
+        https://fedora.info/spec/#http-put-ldprs
+        """
         r = self.post(self.rooturi,
                       headers={'Content-Type': 'text/turtle',
                                'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
@@ -599,8 +628,11 @@ class TestFedora(TCaseWithSetup):
         self.assertNotIn(Literal('xyz'), g.objects())
         self.assertIn(Literal('ZYX'), g.objects())
 
-    def test_fedora_3_4_2(self):
-        """Check LDPNR MUST support PUT to replace content."""
+    def test_fedora_3_6_2(self):
+        """Check LDPNR MUST support PUT to replace content.
+
+        https://fedora.info/spec/#http-put-ldpnr
+        """
         uri = self.post_ldpnr(data=b'original data here')
         r = self.head(uri)
         etag = r.headers.get('etag')
@@ -615,7 +647,10 @@ class TestFedora(TCaseWithSetup):
         self.assertEqual(r.content, new_data)
 
     def test_fedora_3_7(self):
-        """Check implementations MUST support PATCH."""
+        """Check implementations MUST support PATCH.
+
+        https://fedora.info/spec/#http-patch
+        """
         r = self.post(self.rooturi,
                       headers={'Content-Type': 'text/turtle',
                                'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'},
@@ -752,7 +787,10 @@ class TestFedora(TCaseWithSetup):
                                                'http://www.w3.org/ns/ldp#NonRDFSource'])
 
     def test_fedora_4_1_2(self):
-        """LDPRv: An implementation must support PUT, as is the case for any LDPR."""
+        """LDPRv: An implementation must support PUT, as is the case for any LDPR.
+
+        https://fedora.info/spec/#ldprv-put
+        """
         for ldpr_type in ('http://www.w3.org/ns/ldp#RDFSource',
                           'http://www.w3.org/ns/ldp#BasicContainer',
                           'http://www.w3.org/ns/ldp#NonRDFSource'):
@@ -777,7 +815,7 @@ class TestFedora(TCaseWithSetup):
             r = self.get(uri)
             self.assertIn(b'am_still_a', r.content)  # sloppy check on updated content
 
-    def test_fedora_4_2_x(self):
+    def test_fedora_4_2_immutability(self):
         """An LDPRm may be deleted; however, it must not be modified once created.
 
         FIXME - test based on assumption that one can explicity create LDPRm via POST
@@ -852,7 +890,10 @@ class TestFedora(TCaseWithSetup):
         pass  # FIXME - how can this be tested?
 
     def test_fedora_4_3_1(self):
-        """LDPCv GET and HEAD."""
+        """LDPCv GET and HEAD.
+
+        https://fedora.info/spec/#ldpcv-get
+        """
         (ldprv_uri, ldpcv_uri) = self.post_ldprv(data='<http://ex.org/4_3_1> <http://ex.org/a> "OPTIONS Test".')
         # 4.3.1 GET on LDPCv
         for method in (self.head, self.get):
@@ -942,7 +983,7 @@ class TestFedora(TCaseWithSetup):
         else:
             self.assert_4xx_with_link_to_constraints(r)
 
-    def test_fedora_4_3_4(self):
+    def test_fedora_4_3_6(self):
         """LDPCv DELETE, if supported."""
         ldprv_data = '<http://ex.org/4_3_3> <http://ex.org/a> "DELETE Test".'
         (ldprv_uri, ldpcv_uri) = self.post_ldprv(data=ldprv_data)
@@ -962,7 +1003,10 @@ class TestFedora(TCaseWithSetup):
                                                       'http://mementoweb.org/ns#TimeGate'])
 
     def test_fedora_5_1(self):
-        """Check ACLs are LDP RDF Sources."""
+        """Check ACLs are LDP RDF Sources.
+
+        https://fedora.info/spec/#solid-ldp-acls
+        """
         r = self.head(self.rooturi)
         self.assertEqual(r.status_code, 200)
         acls = self.find_links(r.headers.get('link'), 'acl')
@@ -991,6 +1035,56 @@ class TestFedora(TCaseWithSetup):
             self.delete(ldpnr_uri)
         self.assertNotEqual(acl_uris[0], acl_uris[1])
 
+    def test_fedora_5_4(self):
+        """Test ACL linking on resource creation.
+
+        A client HTTP POST or PUT request to create a new LDPR may include a Link: 
+        rel="acl" header referencing an existing LDP-RS to use as the ACL for the new
+        LDPR. The server must reject the request and respond with a 4xx or 5xx range
+        status code, such as 409 (Conflict) if it isn't able to create the LDPR
+        with the specified LDP-RS as the ACL. In that response, the restrictions
+        causing the request to fail must be described in a resource indicated by
+        a Link: rel="http://www.w3.org/ns/ldp#constrainedBy" response header,
+        following the pattern of [LDP] 4.2.1.6.
+
+        https://fedora.info/spec/#link-acl-on-create
+        """
+        # Create an ACL resource
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
+                      data="""
+                           @prefix acl: <http://www.w3.org/ns/auth/acl#> .
+                           @prefix foaf: <http://xmlns.com/foaf/0.1/> .
+                           @prefix ldp: <http://www.w3.org/ns/ldp#> .
+
+                           <#authorization_1> a acl:Authorization ;
+                               acl:agentClass foaf:Agent ;
+                               acl:accessToClass ldp:Resource ;
+                               acl:default <https://example.org/root/> ;
+                               acl:mode acl:Read .
+                           """)
+        self.assertEqual(r.status_code, 201)
+        acl_uri = r.headers.get('Location')
+        self.assertTrue(acl_uri)
+        # Now create a resource with ACL resource as the ACL
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type", '
+                                     + '<' + acl_uri + '>; rel="acl"'},
+                      data="<uri:a> <uri:b> <uri:c>.")
+        if (r.status_code == 201):
+            # Success, must have ACL recorded and presented in Link on GET/HEAD
+            child_uri = r.headers.get('Location')
+            self.assertTrue(child_uri)    
+            r = self.head(child_uri)
+            acls = self.find_links(r.headers.get('link'), 'acl')
+            self.assertEqual(len(acls), 1)
+            self.assertEqual(acls[0], acl_uri)                
+        else:
+            # Rejects, must have 4xx and constraints
+            self.assert_4xx_with_link_to_constraints(r)
+
     def test_fedora_5_5(self):
         """Cross domain ACLs MAY be rejected, if so MUST be 4xx and constraints."""
         r = self.post(self.rooturi,
@@ -1009,8 +1103,11 @@ class TestFedora(TCaseWithSetup):
         else:
             self.assert_4xx_with_link_to_constraints(r)
 
-    def test_fedora_5_6(self):
-        """Check ACL inheritance."""
+    def test_fedora_5_9(self):
+        """Check ACL inheritance.
+
+        https://fedora.info/spec/#inheritance
+        """
         # ACL for root
         r = self.head(self.rooturi)
         self.assertEqual(r.status_code, 200)
@@ -1055,21 +1152,6 @@ class TestFedora(TCaseWithSetup):
         r = self.delete(child_uri)
         r = self.delete(grandchild_uri)
 
-    def test_fedora_5_9(self):
-        """Test ACL linking on resource creation."""
-        # POST or PUT request to create a new LDPR may include a Link: rel="acl"
-        # header referencing an existing LDP-RS to use as the ACL for the new LDPR.
-        # The server must reject the request and respond with a 4xx or 5xx range
-        # status code, such as 409 (Conflict) if it isn't able to create the LDPR
-        # with the specified LDP-RS as the ACL. In that response, the restrictions
-        # causing the request to fail must be described in a resource indicated by
-        # a Link: rel="http://www.w3.org/ns/ldp#constrainedBy" response header,
-        # following the pattern of [LDP] 4.2.1.6.
-        r = self.post(self.rooturi,
-                      headers={'Content-Type': 'text/turtle',
-                               'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
-                      data='')
-
     def test_fedora_7_1(self):
         """Test transmission fixity."""
         r = self.post(self.rooturi,
@@ -1098,7 +1180,10 @@ class TestFedora(TCaseWithSetup):
                      data='goodbye')
 
     def test_fedora_7_2(self):
-        """Test persistence fixity."""
+        """Test persistence fixity.
+
+        https://fedora.info/spec/#persistence-fixity
+        """
         r = self.post(self.rooturi,
                       headers={'Content-Type': 'text/plain',
                                'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
