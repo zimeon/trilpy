@@ -58,6 +58,7 @@ class LDPHandler(RequestHandler):
         self._request_links = None  # values extracted from Link: rel=".."
         # response building
         self.response_links = ResponseLinks()  # accumulate links for Link header
+        self.error_explanation = ''  # sent as addition to body of error response
 
     def get_current_user(self):
         """Get current user from authentication credentials.
@@ -274,6 +275,11 @@ class LDPHandler(RequestHandler):
             old_ctriples = old_resource.server_managed_triples()
             new_ctriples = new_resource.extract_containment_triples()
             if (len(new_ctriples + old_ctriples) != len(old_ctriples)):
+                self.error_explanation("\nIncompatible triples:\n" +
+                                       new_triples.serialize(format='turtle',
+                                                             context="",
+                                                             indent=2).decode('utf-8') +
+                                       "\n")
                 raise HTTPError(409, "Rejecting attempt to change containment triples")
         elif (isinstance(old_resource, LDPRS) and
               not isinstance(old_resource, LDPC) and
@@ -312,7 +318,7 @@ class LDPHandler(RequestHandler):
         elif (model is None):
             # Take default model (LDPRS or LDPNR) from content type
             model = self.ldp_rdf_source if content_type_is_rdf else self.ldp_nonrdf_source
-        logging.debug('POST/PUT model: ' + str(model) + " was " + str(current_type))
+        logging.debug('POST/PUT model: ' + str(model))
         #
         # Now deal with the content
         #
@@ -562,13 +568,18 @@ class LDPHandler(RequestHandler):
         have) caused an error. Use defined in
         <https://www.w3.org/TR/ldp/#ldpr-gen-pubclireqs>
         and servers MAY add this header indescriminately.
+
+        Per [LDP] 4.2.4.4 and https://fedora.info/2018/06/25/spec/#http-put-ldprs
+        there are some cases where the server MUST provide an error response
+        body with an explanation. In these cases add plain text to
+        self.error_explanation before raising HTTPError().
         """
         self.response_links = ResponseLinks()
         self.response_links.add('http://www.w3.org/ns/ldp#constrainedBy',
                                 [self.path_to_uri(self.constraints_path)])
         self.set_link_header()
         self.set_header('Content-Type', 'text/plain')
-        self.finish(str(status_code) + ' - ' + self._reason + "\n")
+        self.finish(str(status_code) + ' - ' + self._reason + "\n" + self.error_explanation)
 
     def confirm(self, txt, status_code=200):
         """Plain text confirmation message."""

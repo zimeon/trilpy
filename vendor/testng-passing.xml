@@ -48,11 +48,7 @@
       <class name="org.fcrepo.spec.testsuite.crud.HttpHead"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpOptions"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpPost"/>
-      <class name="org.fcrepo.spec.testsuite.crud.HttpPut">
-        <methods>
-          <exclude name="httpPutUpdateDisallowedTriplesResponse"/>
-        </methods>
-      </class>
+      <class name="org.fcrepo.spec.testsuite.crud.HttpPut"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpPatch">
         <methods>
           <exclude name="supportPatch"/>
