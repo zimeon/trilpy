@@ -7,17 +7,12 @@ import logging
 import requests.utils
 from tornado.web import HTTPError
 
+from .ldp import LDPNR_URI, LDPRS_URI, LDPC_URI, LDPBC_URI, LDPDC_URI, LDPIC_URI, LDP_CONTAINER_TYPE_URIS
 from .namespace import LDP
 
 
 class RequestLinks(object):
     """Class to handle parsing an access to HTTP request links."""
-
-    ldp_container_types = [str(LDP.IndirectContainer),
-                           str(LDP.DirectContainer),
-                           str(LDP.BasicContainer)]
-    ldp_rdf_source = str(LDP.RDFSource)
-    ldp_nonrdf_source = str(LDP.NonRDFSource)
 
     def __init__(self, link_headers=None, link_dict=None):
         """Initialize RequestLinks object.
@@ -72,11 +67,12 @@ class RequestLinks(object):
         """LDP interaction model URI string from request Link rel="type", else None."""
         types = self.types
         # Look for LDP types starting with most specific
-        is_ldpnr = self.ldp_nonrdf_source in types
-        rdf_type = self.ldp_rdf_source if self.ldp_rdf_source in types else None
+        is_ldpnr = LDPNR_URI in types
+        rdf_type = LDPRS_URI if LDPRS_URI in types else None
+        generic_container_type = LDPC_URI if LDPC_URI in types else None
         container_types = []
-        for ctype in self.ldp_container_types:
-            if (ctype in types):
+        for ctype in LDP_CONTAINER_TYPE_URIS:
+            if ctype in types:
                 container_types.append(ctype)
         # Work out type and deal with error conditions
         if len(container_types) > 1:
@@ -84,11 +80,14 @@ class RequestLinks(object):
         elif len(container_types) == 1:
             # container type overrides an RDF Source which is a compatible superclass
             rdf_type = container_types[0]
+        elif generic_container_type:
+            # generic container overrides an RDF Source which is a compatible superclass
+            rdf_type = generic_container_type
         # Either RDF type or LDPNR...
         if (is_ldpnr and rdf_type):
             raise HTTPError(400, "Conflicting LDP types in Link headers")
         elif (is_ldpnr):
-            return(self.ldp_nonrdf_source)
+            return(LDPNR_URI)
         else:
             return(rdf_type)
 

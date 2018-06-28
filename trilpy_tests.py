@@ -565,32 +565,41 @@ class TestFedora(TCaseWithSetup):
         self.assertEqual(r.status_code, 201)
 
     def test_fedora_3_6(self):
-        """Check PUT and content model handling."""
+        """Check PUT and content model handling.
+
+        Implementations may allow the interaction model of an existing resource to be changed by
+        specification of a new LDP type in a rel="type" link in the HTTP Link header. If supported,
+        requests should be rejected with a 409 (Conflict) response unless the new LDP type specified
+        is a subtype of the resource's current type.
+
+        https://fedora.info/spec/#http-put
+        """
         # LDPNR cannot be replaced with LDPRS, or LDPC types
-        uri = self.post_ldpnr(data=b'I am an LDPNR, can only be replace with same')
+        uri = self.post_ldpnr(data=b'I am an LDPNR, can only be replaced with another LDPNR')
         r = self.head(uri)
         etag = r.headers.get('etag')
-        for model in ['http://www.w3.org/ns/ldp#RDFSource',
+        for model in ('http://www.w3.org/ns/ldp#RDFSource',
                       'http://www.w3.org/ns/ldp#Container',
                       'http://www.w3.org/ns/ldp#BasicContainer',
                       'http://www.w3.org/ns/ldp#DirectContainer',
-                      'http://www.w3.org/ns/ldp#IndirectContainer']:
+                      'http://www.w3.org/ns/ldp#IndirectContainer'):
             r = self.put(uri,
                          headers={'Content-Type': 'text/turtle',
                                   'If-Match': etag,
                                   'Link': '<http://www.w3.org/ns/ldp#RDFSource>; rel="type"'},
                          data='<http://ex.org/a> <http://ex.org/b> "xyz".')
             self.assert_4xx_with_link_to_constraints(r, 409)
-        # LDPRS or LDPC types cannot be replaced with LDPMS
-        for model in ['http://www.w3.org/ns/ldp#RDFSource',
+        self.delete(uri)
+        # LDPRS or LDPC types cannot be replaced with LDPNS
+        for model in ('http://www.w3.org/ns/ldp#RDFSource',
                       'http://www.w3.org/ns/ldp#Container',
                       'http://www.w3.org/ns/ldp#BasicContainer',
                       'http://www.w3.org/ns/ldp#DirectContainer',
-                      'http://www.w3.org/ns/ldp#IndirectContainer']:
+                      'http://www.w3.org/ns/ldp#IndirectContainer'):
             r = self.post(self.rooturi,
                           headers={'Content-Type': 'text/turtle',
                                    'Link': '<' + model + '>; rel="type"'},
-                          data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+                          data='<http://ex.org/a> <http://ex.org/b> "xyz-a".')
             self.assertEqual(r.status_code, 201)
             uri = r.headers.get('Location')
             self.assertTrue(uri)
@@ -602,7 +611,33 @@ class TestFedora(TCaseWithSetup):
                                   'Link': '<http://www.w3.org/ns/ldp#NonRDFSource>; rel="type"'},
                          data='Not RDF')
             self.assert_4xx_with_link_to_constraints(r, 409)
-        # FIXME - Alsmot check incompatible LDPRS replacements
+        self.delete(uri)
+        # LDPC types cannot be replaced with other LDPC types or LDPRS
+        for model in ('http://www.w3.org/ns/ldp#BasicContainer',
+                      'http://www.w3.org/ns/ldp#DirectContainer',
+                      'http://www.w3.org/ns/ldp#IndirectContainer'):
+            r = self.post(self.rooturi,
+                          headers={'Content-Type': 'text/turtle',
+                                   'Link': '<' + model + '>; rel="type"'},
+                          data='<http://ex.org/a> <http://ex.org/b> "xyz-' + model + '" .')
+            self.assertEqual(r.status_code, 201)
+            uri = r.headers.get('Location')
+            self.assertTrue(uri)
+            r = self.head(uri)
+            etag = r.headers.get('etag')
+            for model2 in ('http://www.w3.org/ns/ldp#RDFSource',
+                           'http://www.w3.org/ns/ldp#Container',
+                           'http://www.w3.org/ns/ldp#BasicContainer',
+                           'http://www.w3.org/ns/ldp#DirectContainer',
+                           'http://www.w3.org/ns/ldp#IndirectContainer'):
+                if model != model2:
+                    r = self.put(uri,
+                                 headers={'Content-Type': 'text/turtle',
+                                          'If-Match': etag,
+                                          'Link': '<' + model2 + '>; rel="type"'},
+                                 data='<http://ex.org/a> <http://ex.org/b> "xyz-c".')
+                    self.assert_4xx_with_link_to_constraints(r, 409)
+            self.delete(uri)
 
     def test_fedore_3_6_1(self):
         """Check PUT to LDPRS to update triples.

@@ -11,6 +11,7 @@ from urllib.parse import urljoin, urlsplit
 
 from .auth_basic import get_user
 from .digest import Digest, UnsupportedDigest, BadDigest
+from .ldp import is_ldp_same_or_sub_type
 from .ldpc import LDPC, UnsupportedContainerType
 from .ldpcv import LDPCv
 from .ldpnr import LDPNR
@@ -303,17 +304,15 @@ class LDPHandler(RequestHandler):
         content_type = self.request_content_type()
         content_type_is_rdf = content_type in self.rdf_media_types
         if (current_type is not None):  # Replacements
-            if (model is None):
-                # Assume current type on replace where not model specified
+            if model is None:
+                # Assume current type on replace where no model specified
                 model = current_type
-            else:
-                # Check for incompatible replacements
-                if (model != self.ldp_nonrdf_source and not content_type_is_rdf):
-                    raise HTTPError(415, "Attempt to replace LDPRS (or subclass) with non-RDF type %s" % (content_type))
+            elif not is_ldp_same_or_sub_type(model, current_type):
+                raise HTTPError(409, "Incompatible replacement (from %s to %s)" % (current_type, model))
         elif (model is None):
             # Take default model (LDPRS or LDPNR) from content type
             model = self.ldp_rdf_source if content_type_is_rdf else self.ldp_nonrdf_source
-        logging.debug('POST/PUT model: ' + str(model))
+        logging.debug('POST/PUT model: ' + str(model) + " was " + str(current_type))
         #
         # Now deal with the content
         #

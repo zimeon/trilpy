@@ -50,7 +50,6 @@
       <class name="org.fcrepo.spec.testsuite.crud.HttpPost"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpPut">
         <methods>
-          <exclude name="httpPut"/>
           <exclude name="httpPutUpdateDisallowedTriplesResponse"/>
         </methods>
       </class>
