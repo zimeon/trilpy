@@ -11,6 +11,12 @@ class UnsupportedContainerType(Exception):
     pass
 
 
+class DataConflict(Exception):
+    """Data provided to create or update this LDPC is in conflict."""
+
+    pass
+
+
 class LDPC(LDPRS):
     """LDPC class supporting Basic, Direct and Indirect behaviors.
 
@@ -24,21 +30,63 @@ class LDPC(LDPRS):
         container_type may be either a URIRef() or else one will be created from
         the string value.
         """
-        super(LDPC, self).__init__(uri, **kwargs)
         self.container_type = container_type if isinstance(container_type, URIRef) else URIRef(container_type)
         if self.container_type not in (LDP.BasicContainer, LDP.DirectContainer, LDP.IndirectContainer):
             raise UnsupportedContainerType()
+        super(LDPC, self).__init__(uri, **kwargs)
         self.contains = set()
         self.containment_predicate = LDP.contains
         self.members = set()
         self.membership_predicate = LDP.member
         self._membership_constant = None
+        self.inserted_content_rel = None
         self.type_label = 'LDPC'
 
     @property
     def membership_constant(self):
         """Member constant URIRef, either uriref or set from _member_constant."""
         return self.uriref if self._membership_constant is None else self._membership_constant
+
+    def parse(self, content, content_type='text/turtle', context=None):
+        """Parse RDF and add to this LDPC.
+
+        Uses LDPRS.parse() then extracts LDPC-specific information.
+        """
+        super(LDPC, self).parse(content, content_type=content_type, context=context)
+        if self.container_type in (LDP.DirectContainer, LDP.IndirectContainer):
+            self.extract_membership_config_triples()
+
+    def extract_membership_config_triples(self):
+        """Extract membership configuration triples.
+
+        Sets instance configuration variables.
+        """
+        # ldp:hasMemberRelation
+        # FIXME - what about ldp:isMemberRelationOf
+        # see: https://github.com/fcrepo/fcrepo-specification/issues/387
+        mp = list(self.content.triples((self.uriref, LDP.hasMemberRelation, None)))
+        if len(mp) > 1:
+            raise DataConflict("Multiple ldp:hasMemberRelation specified")
+        elif len(mp) == 1:
+            self.content.remove(mp[0])
+            self.membership_predicate = mp[0][2]
+            if self.membership_predicate == LDP.contains:
+                raise DataConflict("Use of ldp:contains as membership relation not supported")
+        # ldp:membershipResource
+        mr = list(self.content.triples((self.uriref, LDP.membershipResource, None)))
+        if len(mr) > 1:
+            raise DataConflict("Multiple ldp:membershipResource specified")
+        elif len(mr) == 1:
+            self.content.remove(mr[0])
+            self._membership_constant = mr[0][2]
+        if self.container_type == LDP.IndirectContainer:
+            # ldp:insertedContentRelation
+            icr = list(self.content.triples((self.uriref, LDP.insertedContentRelation, None)))
+            if len(icr) > 1:
+                raise DataConflict("Multiple ldp:insertedContentRelation specified")
+            elif len(icr) == 1:
+                self.content.remove(icr[0])
+                self.inserted_content_rel = icr[0][2]
 
     def patch_result_prune_check(self, graph):
         """Prune containment triples from result of PATCH graph and check for illegal modifications.
@@ -65,7 +113,7 @@ class LDPC(LDPRS):
         not want these duplicated in the content.
         """
         ctriples = Graph()
-        if (content is None):
+        if content is None:
             content = self.content
         # FIXME - Should we test for s == self.uriref ? Or should any triple with
         # the containment_predicate be rejected? For now reject any as otherwise

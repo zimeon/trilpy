@@ -12,7 +12,7 @@ from urllib.parse import urljoin, urlsplit
 from .auth_basic import get_user
 from .digest import Digest, UnsupportedDigest, BadDigest
 from .ldp import is_ldp_same_or_sub_type
-from .ldpc import LDPC, UnsupportedContainerType
+from .ldpc import LDPC, UnsupportedContainerType, DataConflict
 from .ldpcv import LDPCv
 from .ldpnr import LDPNR
 from .ldpr import LDPR
@@ -290,7 +290,7 @@ class LDPHandler(RequestHandler):
                                  (str(old_resource), str(new_resource)))
 
     def put_post_resource(self, uri=None, current_type=None):
-        """Create resource by pasring request data for PUT or POST.
+        """Create resource by parsing request data from PUT or POST.
 
         Handles both RDF and Non-RDF sources. Look first at the Link header
         to determine the requested LDP interaction model.
@@ -334,6 +334,8 @@ class LDPHandler(RequestHandler):
                         context=uri)
             except UnsupportedContainerType as e:
                 raise HTTPError(400, "Unsupported container type: %s" % (str(e)))
+            except DataConflict as e:
+                raise HTTPError(409, "Conflict: %s" % (str(e)))
             except Exception as e:
                 raise HTTPError(400, "Failed to parse/add RDF: %s" % (str(e)))
             if (len(r) < 20):

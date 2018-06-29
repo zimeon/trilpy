@@ -251,6 +251,46 @@ class TCaseWithSetup(unittest.TestCase):
         self.assertTrue(ldpnr_uri)
         return(ldpnr_uri)
 
+    def post_ldpc(self, uri=None,
+                  ldp_type='info:BAD-TYPE',
+                  data='', content_type='text/turtle', raw=False):
+        """POST to create an LDPC, return location or response.
+
+        Check success and returns location unless raw=True, in which
+        case returns raw response.
+        """
+        if uri is None:
+            uri = self.rooturi
+        r = self.post(uri,
+                      headers={'Content-Type': content_type,
+                               'Link': '<' + ldp_type + '>; rel="type"'},
+                      data=data)
+        if raw:
+            return r
+        else:
+            self.assertEqual(r.status_code, 201)
+            ldpbc_uri = r.headers.get('Location')
+            self.assertTrue(ldpbc_uri)
+            return ldpbc_uri
+
+    def post_ldpbc(self, uri=None, **kwargs):
+        """POST to create an LDPBC, return location."""
+        return self.post_ldpc(uri=uri,
+                              ldp_type='http://www.w3.org/ns/ldp#BasicContainer',
+                              **kwargs)
+
+    def post_ldpdc(self, uri=None, **kwargs):
+        """POST to create an LDPDC, return location."""
+        return self.post_ldpc(uri=uri,
+                              ldp_type='http://www.w3.org/ns/ldp#DirectContainer',
+                              **kwargs)
+
+    def post_ldpic(self, uri=None, **kwargs):
+        """POST to create an LDPIC, return location."""
+        return self.post_ldpc(uri=uri,
+                              ldp_type='http://www.w3.org/ns/ldp#IndirectContainer',
+                              **kwargs)
+
     def post_ldprv(self, uri=None, model='http://www.w3.org/ns/ldp#RDFSource',
                    data='', content_type='text/turtle'):
         """POST to create an LDPRv with model and data given.
@@ -413,6 +453,28 @@ class TestFedora(TCaseWithSetup):
             links = r.headers.get('Link')
             self.assertIn(container_type, links)
             self.assertNotIn('http://www.w3.org/ns/ldp#NonRDFSource', links)
+
+    def test_fedora_3_1_1_c(self):
+        """Check LDP Containers MUST distinguish [membership] triples.
+
+        https://fedora.info/spec/#ldpc
+        """
+        base = self.post_ldpbc(self.rooturi)
+        cont = self.post_ldpbc(base)
+        child = self.post_ldpbc(cont)
+
+        body = """
+@prefix ldp: <http://www.w3.org/ns/ldp#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+<> dcterms:title 'A Direct Container' ;
+   ldp:hasMemberRelation ldp:contains .
+"""
+        dcr = self.post_ldpdc(base, data=body, raw=True)
+        if dcr.status_code == 409:
+            self.assert_4xx_with_link_to_constraints(dcr)
+        else:
+            self.assertEqual(dcr.status_code, 201)
+            # FIXME - flesh out test with ldp:contains supported
 
     def test_fedora_3_1_2(self):
         """Resource creation SHOULD follow Link: rel='type' for LDP-NR.
@@ -639,7 +701,7 @@ class TestFedora(TCaseWithSetup):
                     self.assert_4xx_with_link_to_constraints(r, 409)
             self.delete(uri)
 
-    def test_fedore_3_6_1(self):
+    def test_fedora_3_6_1(self):
         """Check PUT to LDPRS to update triples.
 
         https://fedora.info/spec/#http-put-ldprs
