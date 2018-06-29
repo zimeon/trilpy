@@ -39,13 +39,18 @@ class LDPC(LDPRS):
         self.members = set()
         self.membership_predicate = LDP.member
         self._membership_constant = None
-        self.inserted_content_rel = LDP.MemberSubject
+        self._inserted_content_rel = None
         self.type_label = 'LDPC'
 
     @property
     def membership_constant(self):
         """Member constant URIRef, either uriref or set from _member_constant."""
         return self.uriref if self._membership_constant is None else self._membership_constant
+
+    @property
+    def inserted_content_rel(self):
+        """Inserted content relation defaults to ldp:MemberSubject."""
+        return LDP.MemberSubject if self._inserted_content_rel is None else self._inserted_content_rel
 
     def parse(self, content, content_type='text/turtle', context=None):
         """Parse RDF and add to this LDPC.
@@ -88,7 +93,7 @@ class LDPC(LDPRS):
         #
         if self.container_type == LDP.IndirectContainer:
             # ldp:insertedContentRelation
-            self.inserted_content_rel = self._extract_property(LDP.insertedContentRelation)
+            self._inserted_content_rel = self._extract_property(LDP.insertedContentRelation)
 
     def patch_result_prune_check(self, graph):
         """Prune containment triples from result of PATCH graph and check for illegal modifications.
