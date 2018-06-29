@@ -275,9 +275,9 @@ class LDPHandler(RequestHandler):
             old_ctriples = old_resource.server_managed_triples()
             new_ctriples = new_resource.extract_containment_triples()
             if (len(new_ctriples + old_ctriples) != len(old_ctriples)):
-                self.error_explanation("\nIncompatible triples:\n" +
-                                       new_triples.serialize(format='nt').decode('utf-8') +
-                                       "\n")
+                self.error_explanation = ("\nIncompatible triples:\n" +
+                                          new_ctriples.serialize(format='nt').decode('utf-8') +
+                                          "\n")
                 raise HTTPError(409, "Rejecting attempt to change containment triples")
         elif (isinstance(old_resource, LDPRS) and
               not isinstance(old_resource, LDPC) and
