@@ -39,7 +39,7 @@ class LDPC(LDPRS):
         self.members = set()
         self.membership_predicate = LDP.member
         self._membership_constant = None
-        self.inserted_content_rel = None
+        self.inserted_content_rel = LDP.MemberSubject
         self.type_label = 'LDPC'
 
     @property
@@ -56,6 +56,20 @@ class LDPC(LDPRS):
         if self.container_type in (LDP.DirectContainer, LDP.IndirectContainer):
             self.extract_membership_config_triples()
 
+    def _extract_property(self, predicate, remove=True):
+        """Extract and return one property with the given predicate.
+
+        Throws a DataConflict error if there is more than one matching property.
+        """
+        triples = list(self.content.triples((self.uriref, predicate, None)))
+        if len(triples) > 1:
+            raise DataConflict("Multiple %s properties given" % str(predicate))
+        elif len(triples) == 1:
+            triple = triples[0]
+            if remove:
+                self.content.remove(triple)
+            return triple[2]
+
     def extract_membership_config_triples(self):
         """Extract membership configuration triples.
 
@@ -64,29 +78,17 @@ class LDPC(LDPRS):
         # ldp:hasMemberRelation
         # FIXME - what about ldp:isMemberRelationOf
         # see: https://github.com/fcrepo/fcrepo-specification/issues/387
-        mp = list(self.content.triples((self.uriref, LDP.hasMemberRelation, None)))
-        if len(mp) > 1:
-            raise DataConflict("Multiple ldp:hasMemberRelation specified")
-        elif len(mp) == 1:
-            self.content.remove(mp[0])
-            self.membership_predicate = mp[0][2]
-            if self.membership_predicate == LDP.contains:
+        mp = self._extract_property(LDP.hasMemberRelation)
+        if mp:
+            if mp == LDP.contains:
                 raise DataConflict("Use of ldp:contains as membership relation not supported")
+            self.membership_predicate = mp
         # ldp:membershipResource
-        mr = list(self.content.triples((self.uriref, LDP.membershipResource, None)))
-        if len(mr) > 1:
-            raise DataConflict("Multiple ldp:membershipResource specified")
-        elif len(mr) == 1:
-            self.content.remove(mr[0])
-            self._membership_constant = mr[0][2]
+        self._membership_constant = self._extract_property(LDP.membershipResource)
+        #
         if self.container_type == LDP.IndirectContainer:
             # ldp:insertedContentRelation
-            icr = list(self.content.triples((self.uriref, LDP.insertedContentRelation, None)))
-            if len(icr) > 1:
-                raise DataConflict("Multiple ldp:insertedContentRelation specified")
-            elif len(icr) == 1:
-                self.content.remove(icr[0])
-                self.inserted_content_rel = icr[0][2]
+            self.inserted_content_rel = self._extract_property(LDP.insertedContentRelation)
 
     def patch_result_prune_check(self, graph):
         """Prune containment triples from result of PATCH graph and check for illegal modifications.
@@ -141,16 +143,15 @@ class LDPC(LDPRS):
             # FIXME - where in the specs does it say we don't serialize ldp:contains?
             if 'membership' not in omits:
                 self.add_membership_triples(graph)
-                if (self.container_type == LDP.DirectContainer):
-                    graph.add((self.uriref,
-                               LDP.membershipResource,
-                               self.membership_constant))
-                    graph.add((self.uriref,
-                               LDP.hasMemberRelation,
-                               self.membership_predicate))
-                    graph.add((self.uriref,
-                               LDP.insertedContentRelation,
-                               LDP.MemberSubject))
+                graph.add((self.uriref,
+                           LDP.membershipResource,
+                           self.membership_constant))
+                graph.add((self.uriref,
+                           LDP.hasMemberRelation,
+                           self.membership_predicate))
+                graph.add((self.uriref,
+                           LDP.insertedContentRelation,
+                           self.inserted_content_rel))
 
     def add_containment_triples(self, graph):
         """Add containment triples to graph."""
