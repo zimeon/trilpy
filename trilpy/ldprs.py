@@ -225,13 +225,21 @@ class LDPRS(LDPR):
     def _compute_etag(self):
         """Compute ETag value.
 
-        Make an ETag that is fixed for the graph.
+        Make an ETag that is fixed for the graph. In order to use this tag for 
+        an If-Match pre-condition it must be a stong tag and thus suitable for
+        the stong comparison per https://tools.ietf.org/html/rfc7232#section-2.3.2.
 
-        FIXME - This probably doesn't work because unless bnodes are serialized with a
-        consistent labeling then the hashing over them won't be consistent. Having said
-        that, the test below with a bnode seems to give consistent results... so maybe
-        the serialization is consistent if the graph isn't changed (though perhaps reading
-        the same graph's triples in a different order would mess things up?)
+        The strong ETag requirement is rather awkward. It is supposed to indicate byte
+        equivalent responses in order to support byte-range requests. In order to support
+        use with the If-Match header for PUT and PATCH we need "strong" only is the sense
+        that the internal state of the resource is identical
+
+        FIXME - Even at the level or RDF-match this implementation doesn't work properly
+        because unless bnodes are serialized with a consistent labeling then the hashing
+        over them won't be consistent. Having said that, the test below with a bnode seems
+        to give consistent results... so maybe the serialization is consistent if the graph
+        isn't changed (though perhaps reading the same graph's triples in a different order
+        would mess things up?)
         """
         lines = []
         for (s, p, o) in self.content:
@@ -244,4 +252,4 @@ class LDPRS(LDPR):
                          ("_:BNODE" if isinstance(o, BNode) else o.n3()))
         s = '\n'.join(sorted(lines))
         h = hashlib.md5(s.encode('utf-8')).hexdigest()
-        return 'W/"' + h + '"'
+        return '"' + h + '"'

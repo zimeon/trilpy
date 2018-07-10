@@ -192,23 +192,23 @@ class TestAll(unittest.TestCase):
     def test40_compute_etag(self):
         """Test computation of etag."""
         r = LDPRS()
-        self.assertEqual(r._compute_etag(), 'W/"d41d8cd98f00b204e9800998ecf8427e"')
+        self.assertEqual(r._compute_etag(), '"d41d8cd98f00b204e9800998ecf8427e"')
         r.parse(b'<http://ex.org/a> <http://ex.org/b> <http://ex.org/c>.')
-        self.assertEqual(r._compute_etag(), 'W/"d06b10aa24d65ebf1fc913ce2e8d23ff"')
+        self.assertEqual(r._compute_etag(), '"d06b10aa24d65ebf1fc913ce2e8d23ff"')
         r.parse(b'<http://ex.org/a> <http://ex.org/b> "hello".')
-        self.assertEqual(r._compute_etag(), 'W/"5777dd3a4bc5065c7ed42bb86655c83f"')
+        self.assertEqual(r._compute_etag(), '"5777dd3a4bc5065c7ed42bb86655c83f"')
         r = LDPRS()
         r.parse(b'<http://ex.org/d> <http://ex.org/e> [ <http://ex.org/f> "111"; <http://ex.org/g> "222"].')
-        self.assertEqual(r._compute_etag(), 'W/"afe90adc3b4a1778ee5c4bb32083b061"')
+        self.assertEqual(r._compute_etag(), '"afe90adc3b4a1778ee5c4bb32083b061"')
         # This graph is different from the previous one because
         # it has two BNodes instead of one, and ETag will differ
         r = LDPRS()
         r.parse(b'<http://ex.org/d> <http://ex.org/e1> [ <http://ex.org/f> "111" ].' +
                 b'<http://ex.org/d> <http://ex.org/e2> [ <http://ex.org/g> "222" ].')
-        self.assertEqual(r._compute_etag(), 'W/"f1c12772ce8d7e485155601c2c095d2b"')
-        # This graph is different from the previous one but
+        self.assertEqual(r._compute_etag(), '"f1c12772ce8d7e485155601c2c095d2b"')
+        # FIXME - This graph is different from the previous one but
         # will end up with the same ETag because BNodes are conflated
         r = LDPRS()
         r.parse(b'<http://ex.org/d> <http://ex.org/e2> [ <http://ex.org/f> "111" ].' +
                 b'<http://ex.org/d> <http://ex.org/e1> [ <http://ex.org/g> "222" ].')
-        self.assertEqual(r._compute_etag(), 'W/"f1c12772ce8d7e485155601c2c095d2b"')
+        self.assertEqual(r._compute_etag(), '"f1c12772ce8d7e485155601c2c095d2b"')
