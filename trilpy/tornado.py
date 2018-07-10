@@ -48,12 +48,13 @@ class LDPHandler(RequestHandler):
 
     def initialize(self):
         """Set up place to accumulate links for Link header."""
+        logging.debug('')
         logging.debug('___request____________________________')
         logging.debug("%s %s" % (self.request.method, self.request.path))
         for header_name in self.request.headers:
             for header in self.request.headers.get_list(header_name):
                 logging.debug("%s: %s" % (header_name, header))
-        logging.debug('___handling_&_response________________')
+        logging.debug('___handling___________________________')
         # request parsing
         self._request_links = None  # values extracted from Link: rel=".."
         # response building
@@ -585,6 +586,13 @@ class LDPHandler(RequestHandler):
         """Plain text confirmation message."""
         self.set_header("Content-Type", "text/plain")
         self.write(str(status_code) + ' - ' + txt + "\n")
+
+    def finish(self, chunk=None):
+        """Add debugging output in wrapper to RequestHandler.finish()."""
+        logging.debug('___response___________________________')
+        for name, value in self._headers.items():
+            logging.debug("%s: %s" % (name, value))
+        super(LDPHandler, self).finish(chunk)
 
 
 class StatusHandler(RequestHandler):
