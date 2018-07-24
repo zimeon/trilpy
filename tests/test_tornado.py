@@ -132,7 +132,7 @@ class TestLDPHandler(unittest.TestCase):
         h.set_header = MagicMock()
         h.write = MagicMock()
         h.patch()
-        h.write.assert_called_with('200 - Patched\n')
+        h.set_header.assert_called_with('X-Confirmation', 'Patched')
         self.assertEqual(len(h.store[uri].content), 1)
 
     def test25_delete(self):
@@ -146,7 +146,7 @@ class TestLDPHandler(unittest.TestCase):
         h.set_header = MagicMock()
         h.write = MagicMock()
         h.delete()
-        h.write.assert_called_with('200 - Deleted\n')
+        h.set_header.assert_called_with('X-Confirmation', 'Deleted')
         self.assertRaises(KeyDeleted, lambda: h.store[uri])
 
     def test30_options(self):
@@ -160,7 +160,7 @@ class TestLDPHandler(unittest.TestCase):
         h.options()
         h.set_header.assert_has_calls([call('Allow', 'GET, HEAD, OPTIONS, PUT, DELETE, PATCH, POST')],
                                       any_order=True)
-        h.write.assert_called_with('200 - Options returned\n')
+        h.set_header.assert_called_with('X-Confirmation', 'Options returned')
 
     def test34_request_content_type(self):
         """Test request_content_type method."""
@@ -285,9 +285,8 @@ class TestLDPHandler(unittest.TestCase):
         h = mockedLDPHandler()
         h.write = MagicMock()
         h.set_header = MagicMock()
-        h.confirm("blah!", 987)
-        h.write.assert_called_with('987 - blah!\n')
-        h.set_header.assert_called_with('Content-Type', 'text/plain')
+        h.confirm("blah!")
+        h.set_header.assert_called_with('X-Confirmation', 'blah!')
 
 
 def mockedStatusHandler(method='GET', uri='/status', headers=None, body=None):

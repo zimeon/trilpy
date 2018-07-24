@@ -378,6 +378,7 @@ class LDPHandler(RequestHandler):
         except PatchFailed as e:
             raise HTTPError(400, "PATCH failed: " + str(e))
         logging.debug("PATCH %s OK" % (uri))
+        self.set_status(204)
         self.confirm("Patched")
 
     def delete(self):
@@ -399,6 +400,7 @@ class LDPHandler(RequestHandler):
                 # FIXME - What to do about any Mementos that might themselves be LDPC?
                 self.store.delete(contained)
         self.store.delete(uri)
+        self.set_status(204)
         self.confirm("Deleted")
 
     def options(self):
@@ -582,10 +584,9 @@ class LDPHandler(RequestHandler):
         self.set_header('Content-Type', 'text/plain')
         self.finish(str(status_code) + ' - ' + self._reason + "\n" + self.error_explanation)
 
-    def confirm(self, txt, status_code=200):
-        """Plain text confirmation message."""
-        self.set_header("Content-Type", "text/plain")
-        self.write(str(status_code) + ' - ' + txt + "\n")
+    def confirm(self, txt):
+        """Confirmation message as X-Confirmation header."""
+        self.set_header("X-Confirmation", txt)
 
     def finish(self, chunk=None):
         """Add debugging output in wrapper to RequestHandler.finish()."""

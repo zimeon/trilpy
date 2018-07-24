@@ -39,11 +39,6 @@ class TCaseWithSetup(unittest.TestCase):
         options = ['-v', '-p', str(cls.port)]
         if (cls.no_auth):
             options.append('--no-auth')
-        if cls.__name__ == 'FedoraAPITestSuite':
-            # FIXME - disable If-Match check until test suite issue
-            # https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/88
-            # is resolved
-            options.append('--optional-if-match-etag')
         cls.proc = Popen(['/usr/bin/env', 'python', cls.trilpy_path] + options)
         print("Started trilpy (pid=%d)" % (cls.proc.pid))
         for n in range(0, 20):
@@ -143,6 +138,11 @@ class TCaseWithSetup(unittest.TestCase):
         allows = self.allows(r)
         for method in (methods):
             self.assertIn(method, allows, "Allow header includes %s" % (method))
+
+    def assert_2xx(self, status_code):
+        """Assert status code is a 2xx code."""
+        self.assertGreaterEqual(status_code, 200)
+        self.assertLessEqual(status_code, 299)
 
     def assert_4xx(self, status_code):
         """Assert status code is a 4xx code."""
@@ -777,7 +777,7 @@ class TestFedora(TCaseWithSetup):
         r = self.patch(uri,
                        headers={'Content-Type': 'application/sparql-update'},
                        data=patch_data)
-        self.assertEqual(r.status_code, 200)
+        self.assert_2xx(r.status_code)
         # Check result
         g = self.get_parse_ldprs(uri)
         self.assertIn((URIRef('http://example.org/simeon'),
@@ -975,7 +975,7 @@ class TestFedora(TCaseWithSetup):
             # of the LDPRm.
             if (supports_ldprm_delete):
                 r = self.delete(ldprm_uri)
-                self.assertEqual(r.status_code, 200)
+                self.assert_2xx(r.status_code)
                 # Check no longer included in LDPCv/TimeMap
                 g = self.get_parse_ldprs(tm_uri)
                 self.assertNotIn(URIRef(ldprm_uri), g.objects())
@@ -1307,7 +1307,7 @@ class TestFedora(TCaseWithSetup):
 class TestTrilpy(TCaseWithSetup):
     """TestTrilpy class to run miscellaneous or trilpy specific tests."""
 
-    def test01_unknown_paths(self):
+    def test_trilpy_01_unknown_paths(self):
         """Expect 404 for bad path."""
         url = urljoin(self.rooturi, 'does_not_exist')
         r = self.get(url)
@@ -1319,18 +1319,18 @@ class TestTrilpy(TCaseWithSetup):
         r = self.delete(url)
         self.assertEqual(r.status_code, 404)
 
-    def test02_root_container(self):
+    def test_trilpy_02_root_container(self):
         """Root container."""
         r = self.get(urljoin(self.rooturi, '/'))
         self.assertEqual(r.status_code, 200)
 
-    def test03_delete_resource_get_gone(self):
+    def test_trilpy_03_delete_resource_get_gone(self):
         """Delete the LDPC at /."""
         uri = self.post_ldpnr(data=b'text')
         r = self.head(uri)
         self.assertEqual(r.status_code, 200)
         r = self.delete(uri)
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 204)
         # ... gives 410 on uri noe
         r = self.head(uri)
         self.assertEqual(r.status_code, 410)

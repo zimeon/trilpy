@@ -48,7 +48,15 @@
       <class name="org.fcrepo.spec.testsuite.crud.HttpHead"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpOptions"/>
       <class name="org.fcrepo.spec.testsuite.crud.HttpPost"/>
-      <class name="org.fcrepo.spec.testsuite.crud.HttpPut"/>
+      <class name="org.fcrepo.spec.testsuite.crud.HttpPut">
+        <methods>
+          <!-- Missing If-Match, see https://github.com/fcrepo/Fedora-API-Test-Suite/issues/135 -->
+	  <exclude name="httpPutUpdateDisallowedTriples"/>
+	  <exclude name="httpPutUpdateDisallowedTriplesResponse"/>
+	  <exclude name="httpPutUpdateDisallowedTriplesConstrainedByHeader"/>
+	  <exclude name="httpPutNR"/>
+        </methods>
+      </class>
       <class name="org.fcrepo.spec.testsuite.crud.HttpPatch">
         <methods>
           <exclude name="supportPatch"/>
@@ -60,7 +68,16 @@
         </methods>
       </class>
       <class name="org.fcrepo.spec.testsuite.crud.HttpDelete"/>
-      <!--class name="org.fcrepo.spec.testsuite.crud.ExternalBinaryContent"--> <!--these tests all broken, see https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/111 -->
+      <class name="org.fcrepo.spec.testsuite.crud.ExternalBinaryContent"/>
+      <class name="org.fcrepo.spec.testsuite.versioning.LdprvHttpGet"/>
+      <class name="org.fcrepo.spec.testsuite.versioning.LdprvHttpPut"/>
+      <class name="org.fcrepo.spec.testsuite.versioning.LdprmHttpGet"/>
+      <class name="org.fcrepo.spec.testsuite.versioning.LdprmHttpDelete"/>
+      <class name="org.fcrepo.spec.testsuite.versioning.LdprmHttpOptions"/>
+      <class name="org.fcrepo.spec.testsuite.versioning.LdpcvHttpGet"/>
+      <class name="org.fcrepo.spec.testsuite.versioning.LdpcvHttpPost"/>
+      <class name="org.fcrepo.spec.testsuite.versioning.LdpcvHttpDelete"/>
+      <class name="org.fcrepo.spec.testsuite.versioning.LdpcvHttpOptions"/>
     </classes>
 
   </test>
