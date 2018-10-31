@@ -46,13 +46,13 @@ class TestLDPHandler(unittest.TestCase):
         # auth disabled
         LDPHandler.no_auth = True
         h = mockedLDPHandler()
-        self.assertEqual(h.get_current_user(), 'fedoraAdmin')
+        self.assertEqual(h.get_current_user(), 'http://example.org/root#me')
         # auth enabled
         LDPHandler.no_auth = False
         h = mockedLDPHandler()
         self.assertEqual(h.get_current_user(), None)
         h = mockedLDPHandler(headers={'Authorization': 'Basic ZmVkb3JhQWRtaW46c2VjcmV0'})
-        self.assertEqual(h.get_current_user(), 'fedoraAdmin')
+        self.assertEqual(h.get_current_user(), 'http://example.org/root#me')
         h = mockedLDPHandler(headers={'Authorization': 'Basic YS11c2VyOmEtcGFzc3dvcmQ='})
         self.assertEqual(h.get_current_user(), None)
 

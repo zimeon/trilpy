@@ -43,8 +43,8 @@ class LDPHandler(RequestHandler):
     ldp_nonrdf_source = str(LDP.NonRDFSource)
     constraints_path = '/constraints.txt'
     # Authorization
-    fedora_admin_webid = 'fedoraAdmin'  # This should really be a webid but usernames in HTTP Basic auth can't contain :
-    users = {fedora_admin_webid: 'secret'}
+    root_webid = 'http://example.org/root#me'
+    users = {'fedoraAdmin:secret': root_webid}
 
     def initialize(self):
         """Set up place to accumulate links for Link header."""
@@ -61,13 +61,13 @@ class LDPHandler(RequestHandler):
         self.error_explanation = ''  # sent as addition to body of error response
 
     def get_current_user(self):
-        """Get current user from authentication credentials.
+        """Get current user webid from authentication credentials.
 
         Overrides tornado's standard setter for current_user property.
         """
         if (self.no_auth):
             # all accesses from admin
-            return self.fedora_admin_webid
+            return self.root_webid
         # do HTTP Basic auth
         return get_user(self.request.headers.get('Authorization'), self.users)
 
@@ -275,11 +275,10 @@ class LDPHandler(RequestHandler):
             old_ctriples = old_resource.server_managed_triples()
             new_ctriples = new_resource.extract_containment_triples()
             if (len(new_ctriples + old_ctriples) != len(old_ctriples)):
-                self.error_explanation("\nIncompatible triples:\n" +
-                                       new_triples.serialize(format='turtle',
-                                                             context="",
-                                                             indent=2).decode('utf-8') +
-                                       "\n")
+                self.error_explanation = ("\nIncompatible triples:\n" +
+                                          new_ctriples.serialize(format='turtle',
+                                                                 indent=2).decode('utf-8') +
+                                          "\n")
                 raise HTTPError(409, "Rejecting attempt to change containment triples")
         elif (isinstance(old_resource, LDPRS) and
               not isinstance(old_resource, LDPC) and
@@ -502,7 +501,7 @@ class LDPHandler(RequestHandler):
             logging.debug("check_authz: %s for PUT-to-create %s" % (str(user), access_type))
         else:
             logging.debug("check_authz: %s for %s %s" % (str(user), resource.uri, access_type))
-        if (user != 'fedoraAdmin'):  # FIXME -- Add some real check of ACLs!
+        if (user != self.root_webid):  # FIXME -- Add some real check of ACLs!
             raise HTTPError(403, 'Access denied (user %s, perms %s)' % (str(user), access_type))
 
     def from_store(self, uri):

@@ -22,8 +22,8 @@ class TCaseWithSetup(unittest.TestCase):
     """
 
     port = 9999
+    rooturi = 'http://localhost:' + str(port)
     no_auth = False
-    rooturi = 'http://localhost:' + str(port)  # + '/'
     start_trilpy = True
     new_for_each_test = False
     run_ldp_tests = False
@@ -33,17 +33,34 @@ class TCaseWithSetup(unittest.TestCase):
     fedora_api_test_suite_jar = None
     digest = None
 
+    root_webid = 'http://example.org/user/root'  # FIXME - last segment must match username, see https://github.com/fcrepo/Fedora-API-Test-Suite/issues/288
+    root_user = 'root'
+    root_pass = 'secret'
+    other_webid = 'http://example.org/user/other'
+    other_user = 'other'
+    other_pass = 'tersec'
+
     @classmethod
     def _start_trilpy(cls):
         """Start trilpy."""
         options = ['-v', '-p', str(cls.port)]
         if (cls.no_auth):
             options.append('--no-auth')
+        else:
+            options.append('--user')
+            options.append("%s=%s:%s" % (cls.root_webid, cls.root_user, cls.root_pass))
+            options.append('--user')
+            options.append("%s=%s:%s" % (cls.other_webid, cls.other_user, cls.other_pass))
+            options.append('--root-webid')
+            options.append(cls.root_webid)
+            options.append('--default-acl-webid')
+            options.append(cls.root_webid)
         if cls.__name__ == 'FedoraAPITestSuite':
             # FIXME - disable If-Match check until test suite issue
             # https://github.com/fcrepo4-labs/Fedora-API-Test-Suite/issues/88
             # is resolved
             options.append('--optional-if-match-etag')
+        print("Starting trilpy with: " + ' '.join(options))
         cls.proc = Popen(['/usr/bin/env', 'python', cls.trilpy_path] + options)
         print("Started trilpy (pid=%d)" % (cls.proc.pid))
         for n in range(0, 20):
@@ -52,7 +69,7 @@ class TCaseWithSetup(unittest.TestCase):
                 if (cls.no_auth):
                     r = requests.head(cls.rooturi, timeout=0.5)
                 else:
-                    r = requests.head(cls.rooturi, auth=(cls.user, cls.password), timeout=0.5)
+                    r = requests.head(cls.rooturi, auth=(cls.root_user, cls.root_pass), timeout=0.5)
                 if (r.status_code == 200):
                     break
                 else:
@@ -197,43 +214,43 @@ class TCaseWithSetup(unittest.TestCase):
     def head(self, uri, auth=None, **kwargs):
         """HEAD uri with auth."""
         if (auth is None):
-            auth = (self.user, self.password)
+            auth = (self.root_user, self.root_pass)
         return requests.head(uri, auth=auth, **kwargs)
 
     def get(self, uri, auth=None, **kwargs):
         """GET uri with auth."""
         if (auth is None):
-            auth = (self.user, self.password)
+            auth = (self.root_user, self.root_pass)
         return requests.get(uri, auth=auth, **kwargs)
 
     def options(self, uri, auth=None, **kwargs):
         """OPTIONS uri with auth."""
         if (auth is None):
-            auth = (self.user, self.password)
+            auth = (self.root_user, self.root_pass)
         return requests.options(uri, auth=auth, **kwargs)
 
     def post(self, uri, auth=None, **kwargs):
         """POST uri with auth."""
         if (auth is None):
-            auth = (self.user, self.password)
+            auth = (self.root_user, self.root_pass)
         return requests.post(uri, auth=auth, **kwargs)
 
     def put(self, uri, auth=None, **kwargs):
         """PUT uri with auth."""
         if (auth is None):
-            auth = (self.user, self.password)
+            auth = (self.root_user, self.root_pass)
         return requests.put(uri, auth=auth, **kwargs)
 
     def patch(self, uri, auth=None, **kwargs):
         """PATCH uri with auth."""
         if (auth is None):
-            auth = (self.user, self.password)
+            auth = (self.root_user, self.root_pass)
         return requests.patch(uri, auth=auth, **kwargs)
 
     def delete(self, uri, auth=None, **kwargs):
         """DELETE uri with auth."""
         if (auth is None):
-            auth = (self.user, self.password)
+            auth = (self.root_user, self.root_pass)
         return requests.delete(uri, auth=auth, **kwargs)
 
     # Frequently used methods with tests
@@ -269,7 +286,7 @@ class TCaseWithSetup(unittest.TestCase):
         self.assertEqual(r.status_code, 201)
         ldprv_uri = r.headers.get('Location')
         self.assertTrue(ldprv_uri)
-        r = requests.head(ldprv_uri, auth=(self.user, self.password))
+        r = requests.head(ldprv_uri, auth=(self.root_user, self.root_pass))
         link_header = r.headers.get('link')
         ldpcv_uri = self.find_links(link_header, 'timemap')[0]
         return(ldprv_uri, ldpcv_uri)
@@ -301,9 +318,8 @@ class LDPTestSuite(TCaseWithSetup):
             8 - no tests
         thus we allow 2 only to allow skips
         """
-        base_uri = 'http://localhost:' + str(self.port)
         p = run('java -jar %s --server %s --includedGroups MUST SHOULD --excludedGroups MANUAL --basic'
-                % (self.ldp_test_suite_jar, base_uri), shell=True)
+                % (self.ldp_test_suite_jar, self.rooturi), shell=True)
         self.assertEqual(p.returncode | 2, 2)  # allow skipped tests
 
 
@@ -321,15 +337,19 @@ class FedoraAPITestSuite(TCaseWithSetup):
         Relies on a custom set of test excludes in vendor/testng-passing.xml
         as trilpy is still some way from passing all tests.
         """
-        if self.failing:
-            excludes = ''
-        else:
+        cmd = ['java', '-jar', self.fedora_api_test_suite_jar]
+        if not self.failing:
             print("Skipping known failing tests in Fedora API test suite (use --failing to run)")
-            excludes = '--testngxml vendor/testng-passing.xml'
-        base_uri = 'http://localhost:' + str(self.port)
-        p = run('java -jar %s --baseurl %s %s --user %s --password %s' %
-                (self.fedora_api_test_suite_jar, base_uri, excludes,
-                 self.user, self.password), shell=True)
+            cmd += ['--testngxml', 'vendor/testng-passing.xml']
+        cmd += ['--rooturl', self.rooturi,
+                '--root-controller-user-webid', self.root_webid,
+                '--root-controller-user-password', self.root_pass,
+                '--permissionless-user-webid', self.other_webid,
+                '--permissionless-user-password', self.other_pass,
+                '--broker-url', 'tcp://overtherainbow:61616',
+                '--queue-name', 'fedora']
+        print("Starting Fedora-API-Test-Suite with: " + ' '.join(cmd))
+        p = run(' '.join(cmd), shell=True)
         self.assertEqual(p.returncode, 0,  # FIXME - seems to always give 0
                          "Expected zero return code, got %s" % p.returncode)
 
@@ -366,7 +386,7 @@ class TestLDP(TCaseWithSetup):
                      data='<http://ex.org/a> <http://ex.org/b> "3".')
         self.assertEqual(r.status_code, 412)
         # Cleanup
-        self.delete(url, auth=(self.user, self.password))
+        self.delete(url, auth=(self.root_user, self.root_pass))
 
     def test_ldp_5_3_2_7(self):
         """Test <> in POST body.
@@ -639,7 +659,7 @@ class TestFedora(TCaseWithSetup):
                     self.assert_4xx_with_link_to_constraints(r, 409)
             self.delete(uri)
 
-    def test_fedore_3_6_1(self):
+    def test_fedore_3_6_1_a(self):
         """Check PUT to LDPRS to update triples.
 
         https://fedora.info/spec/#http-put-ldprs
@@ -662,6 +682,31 @@ class TestFedora(TCaseWithSetup):
         g = self.get_parse_ldprs(uri)
         self.assertNotIn(Literal('xyz'), g.objects())
         self.assertIn(Literal('ZYX'), g.objects())
+
+    def test_fedore_3_6_1_b(self):
+        """Check PUT to replace LDPBC disallows for conflicting triples and explanation.
+
+        https://fedora.info/spec/#http-put-ldprs
+        """
+        r = self.post(self.rooturi,
+                      headers={'Content-Type': 'text/turtle',
+                               'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'},
+                      data='<http://ex.org/a> <http://ex.org/b> "xyz".')
+        self.assertEqual(r.status_code, 201)
+        uri = r.headers.get('Location')
+        self.assertTrue(uri)
+        r = self.head(uri)
+        etag = r.headers.get('etag')
+        r = self.put(uri,
+                     headers={'Content-Type': 'text/turtle',
+                              'If-Match': etag,
+                              'Link': '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"'},
+                     data='<> <http://www.w3.org/ns/ldp#contains> <http://ex.org/conflicting-thing>.')
+        self.assertEqual(r.status_code, 409)
+        # Explanation should contain these strings in whatever serialization of the
+        # RDF might be used (with any prefix strategy)
+        self.assertIn(b'contains', r.content)
+        self.assertIn(b'conflicting-thing', r.content)
 
     def test_fedora_3_6_2(self):
         """Check LDPNR MUST support PUT to replace content.
@@ -808,8 +853,8 @@ class TestFedora(TCaseWithSetup):
             for (name, value) in headers:
                 conn.putheader(name, value)
             # Add auth header
-            if self.user and self.password:
-                up = b64encode(b':'.join((self.user.encode(), self.password.encode())))
+            if self.root_user and self.root_pass:
+                up = b64encode(b':'.join((self.root_user.encode(), self.root_pass.encode())))
                 conn.putheader('Authorization', 'Basic ' + up.decode())
             conn.endheaders()
             conn.send(b'some-data')

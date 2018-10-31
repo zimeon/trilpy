@@ -49,6 +49,22 @@ class ACLR(LDPRS):
             self.content.add((auth, ACL.defaultForNew, acl_for))
         return(auth)
 
+    def add_owner(self, webid, inherit=True):
+        """Set owner permissions for the given webid."""
+        if (self._acl_for is None):
+            raise Exception("Can't set ACL without target!")
+        auth = self._get_new_hash_uriref()
+        acl_for = URIRef(self._acl_for)
+        self.content.add((auth, RDF.type, ACL.Authorization))
+        self.content.add((auth, ACL.agentClass, URIRef(webid)))
+        self.content.add((auth, ACL.mode, ACL.Read))
+        self.content.add((auth, ACL.mode, ACL.Write))
+        self.content.add((auth, ACL.mode, ACL.Control))
+        self.content.add((auth, ACL.accessTo, acl_for))
+        if (inherit):
+            self.content.add((auth, ACL.defaultForNew, acl_for))
+        return(auth)        
+
     @property
     def authorizations(self):
         """Iterator over authorizations in this ACL."""
