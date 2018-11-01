@@ -613,7 +613,7 @@ def make_app(store, **ldphandler_config):
     store is the data store for the application
 
     ldphandler_config is a set of keyword arguments used to set the
-    class attributed of LDPHandler.
+    class attributes of LDPHandler.
     """
     LDPHandler.store = store
     LDPHandler.base_uri = store.base_uri
